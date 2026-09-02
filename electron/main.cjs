@@ -227,9 +227,12 @@ if (!hasSingleInstanceLock) {
     openWidget();
     Promise.all([waitForWindow(mainWindow), waitForWindow(widgetWindow)])
       .then(async () => {
-        const [dashboardOk, widgetOk] = await Promise.all([
+        const [dashboardOk, widgetOk, dashboardImagesOk, widgetImagesOk, widgetTransparentOk] = await Promise.all([
           mainWindow.webContents.executeJavaScript("document.body.innerText.includes('waterline')"),
           widgetWindow.webContents.executeJavaScript("document.body.innerText.includes('Log 12 oz')"),
+          mainWindow.webContents.executeJavaScript("[...document.images].every(image => image.complete && image.naturalWidth > 0)"),
+          widgetWindow.webContents.executeJavaScript("[...document.images].every(image => image.complete && image.naturalWidth > 0)"),
+          widgetWindow.webContents.executeJavaScript("[document.documentElement, document.body].every(element => getComputedStyle(element).backgroundColor === 'rgba(0, 0, 0, 0)')"),
         ]);
         await widgetWindow.webContents.executeJavaScript("[...document.querySelectorAll('button')].find(button => button.textContent.includes('Collapse'))?.click()");
         await new Promise(resolve => setTimeout(resolve, 350));
@@ -240,8 +243,8 @@ if (!hasSingleInstanceLock) {
         const expandedBounds = widgetWindow.getBounds();
         const widgetExpandOk = expandedBounds.width === 410 && expandedBounds.height === 490;
         const singleInstanceOk = app.hasSingleInstanceLock();
-        const passed = dashboardOk && widgetOk && widgetWindow.isAlwaysOnTop() && widgetCollapseOk && widgetExpandOk && singleInstanceOk;
-        console.log(JSON.stringify({ dashboardOk, widgetOk, widgetAlwaysOnTop: widgetWindow.isAlwaysOnTop(), widgetCollapseOk, widgetExpandOk, singleInstanceOk }));
+        const passed = dashboardOk && widgetOk && dashboardImagesOk && widgetImagesOk && widgetTransparentOk && widgetWindow.isAlwaysOnTop() && widgetCollapseOk && widgetExpandOk && singleInstanceOk;
+        console.log(JSON.stringify({ dashboardOk, widgetOk, dashboardImagesOk, widgetImagesOk, widgetTransparentOk, widgetAlwaysOnTop: widgetWindow.isAlwaysOnTop(), widgetCollapseOk, widgetExpandOk, singleInstanceOk }));
         quitting = true;
         app.exit(passed ? 0 : 1);
       })

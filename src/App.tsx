@@ -101,9 +101,14 @@ function App() {
     return () => window.removeEventListener('storage', onStorage);
   }, [drinkState.day]);
   useEffect(() => {
+    document.documentElement.classList.toggle('widget-mode', widgetMode);
+    document.documentElement.classList.toggle('widget-collapsed', widgetMode && widgetCollapsed);
     document.body.classList.toggle('widget-mode', widgetMode);
     document.body.classList.toggle('widget-collapsed', widgetMode && widgetCollapsed);
-    return () => { document.body.classList.remove('widget-mode', 'widget-collapsed'); };
+    return () => {
+      document.documentElement.classList.remove('widget-mode', 'widget-collapsed');
+      document.body.classList.remove('widget-mode', 'widget-collapsed');
+    };
   }, [widgetMode, widgetCollapsed]);
   useEffect(() => {
     if (!toast) return;
@@ -186,7 +191,7 @@ function App() {
     <main className="collapsed-shell">
       <section className="widget-orb window-drag" aria-label={`${pct}% hydrated today`}>
         <ProgressRing percent={pct} size={92} compact />
-        <img src="/icons/waterline-app.png" alt="" />
+        <img src="./icons/waterline-app.png" alt="" />
         {settings.reminders && <span className="notification-badge">1</span>}
         <button className="orb-expand window-no-drag" onClick={() => void toggleWidget(false)} aria-label="Expand widget"><ChevronDown size={16} /></button>
       </section>
@@ -224,7 +229,7 @@ function App() {
       <div className="ambient" aria-hidden="true"><span /><span /><span /></div>
       <section className="app-frame">
         <aside className="nav-rail" aria-label="Main navigation">
-          <button className="nav-brand" onClick={() => goTo('today')} aria-label="Waterline home"><img src="/icons/waterline-app.png" alt="" /></button>
+          <button className="nav-brand" onClick={() => goTo('today')} aria-label="Waterline home"><img src="./icons/waterline-app.png" alt="" /></button>
           <nav>{navItems.map(({ id, label, icon: Icon, action }) => <button key={id} className={activeSection === id ? 'active' : ''} onClick={action} aria-label={label} title={label}><Icon size={20} />{id === 'settings' && updateAttention ? <i className="nav-update-dot" /> : null}<span>{label}</span></button>)}</nav>
           <span className={`rail-status ${inWorkHours ? 'active' : ''}`} title={inWorkHours ? 'Workday mode active' : 'Outside work hours'} />
         </aside>
@@ -256,7 +261,7 @@ function App() {
   );
 }
 
-function Brand() { return <div className="brand"><img src="/icons/waterline-app.png" alt="" /><div>waterline<small>WORKDAY HYDRATION</small></div></div>; }
+function Brand() { return <div className="brand"><img src="./icons/waterline-app.png" alt="" /><div>waterline<small>WORKDAY HYDRATION</small></div></div>; }
 
 function ProgressRing({ percent, size, compact = false }: { percent: number; size: number; compact?: boolean }) {
   const r = 45, c = 2 * Math.PI * r;

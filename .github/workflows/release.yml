@@ -22,7 +22,18 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Build and publish GitHub Release
-        run: pnpm desktop:publish
+      - name: Build Windows installer
+        run: pnpm desktop:build
+      - name: Publish GitHub Release
+        shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $version = $env:GITHUB_REF_NAME.TrimStart('v')
+          gh release create $env:GITHUB_REF_NAME `
+            --repo $env:GITHUB_REPOSITORY `
+            --title "Waterline $version" `
+            --generate-notes `
+            "release/Waterline-Setup-$version.exe" `
+            "release/Waterline-Setup-$version.exe.blockmap" `
+            "release/latest.yml"
