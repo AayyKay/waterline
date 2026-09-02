@@ -1,15 +1,24 @@
 {
   "name": "waterline",
+  "description": "A calm Windows hydration tracker with native reminders and an always-on-top widget.",
+  "author": "Waterline",
   "private": true,
+  "repository": "https://github.com/AayyKay/waterline.git",
   "version": "1.0.0",
   "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
+    "desktop:dev": "electron . --dev",
     "build": "tsc -b && vite build",
+    "desktop:build": "pnpm build && electron-builder --win nsis",
+    "desktop:publish": "pnpm build && electron-builder --win nsis --publish always",
+    "test": "node --test electron/reminders.test.cjs",
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
+    "electron-updater": "^6.8.9",
     "lucide-react": "latest",
     "react": "latest",
     "react-dom": "latest",
@@ -18,6 +27,32 @@
   "devDependencies": {
     "@types/react": "latest",
     "@types/react-dom": "latest",
+    "electron": "latest",
+    "electron-builder": "latest",
     "typescript": "latest"
+  },
+  "build": {
+    "appId": "com.waterline.desktop",
+    "productName": "Waterline",
+    "asar": true,
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "icon": "public/icons/waterline-app.png",
+      "target": ["nsis"]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Waterline"
+    }
   }
 }
