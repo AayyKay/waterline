@@ -3,6 +3,7 @@ import { BarChart3, Bell, BellRing, CalendarClock, Check, ChevronDown, ChevronRi
 
 type Drink = { id: number; amount: number; at: string };
 type Settings = { goal: number; interval: number; start: string; end: string; reminders: boolean; weekdays: number[]; sounds: boolean };
+type Panel = 'schedule' | 'settings' | null;
 type ModelContextLike = { registerTool: (tool: Record<string, unknown>, options?: { signal?: AbortSignal }) => void | Promise<void> };
 type SoundKind = 'log' | 'reminder';
 
@@ -50,7 +51,7 @@ function App() {
     return { day, items: load<Drink[]>(`waterline-drinks-${day}`, []) };
   });
   const [settings, setSettings] = useState<Settings>(() => ({ ...DEFAULT_SETTINGS, ...load<Partial<Settings>>('waterline-settings', {}) }));
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [openPanel, setOpenPanel] = useState<Panel>(null);
   const [customOpen, setCustomOpen] = useState(false);
   const [customAmount, setCustomAmount] = useState(10);
   const [toast, setToast] = useState('');
@@ -194,6 +195,11 @@ function App() {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
+  const showPanel = (panel: Exclude<Panel, null>) => {
+    setActiveSection(panel);
+    setOpenPanel(panel);
+  };
+
   const week = useMemo(() => Array.from({ length: 7 }, (_, index) => {
     const date = new Date();
     date.setDate(date.getDate() - (6 - index));
@@ -234,9 +240,9 @@ function App() {
   const navItems = [
     { id: 'today', label: 'Today', icon: Waves, action: () => goTo('today') },
     { id: 'insights', label: 'Insights', icon: BarChart3, action: () => goTo('insights') },
-    { id: 'schedule', label: 'Schedule', icon: CalendarClock, action: () => setSettingsOpen(true) },
+    { id: 'schedule', label: 'Schedule', icon: CalendarClock, action: () => showPanel('schedule') },
     { id: 'widget', label: 'Widget', icon: Droplet, action: () => window.waterlineDesktop?.openWidget() },
-    { id: 'settings', label: 'Settings', icon: Settings2, action: () => setSettingsOpen(true) },
+    { id: 'settings', label: 'Settings', icon: Settings2, action: () => showPanel('settings') },
   ];
   const updateAttention = ['available', 'downloading', 'downloaded'].includes(updateState.phase);
 
@@ -266,11 +272,12 @@ function App() {
             <section className="recent-card glass-card"><div className="section-title"><div><span className="eyebrow">TODAY</span><h2>Recent sips</h2></div>{drinks.length > 0 && <button className="text-button" onClick={() => setDrinkState(previous => ({ ...previous, items: previous.items.slice(0, -1) }))}><Undo2 size={14} /> Undo</button>}</div><div className="drink-list">{drinks.length === 0 ? <div className="empty-state"><GlassWater size={23} /><p>Your first glass is one tap away.</p></div> : drinks.slice(-3).reverse().map(drink => <div className="drink-row" key={drink.id}><span className="mini-glass"><Droplet size={15} /></span><div><strong>{drink.amount} oz water</strong><small>{fmtTime(drink.at)}</small></div><Check size={15} /></div>)}</div></section>
             <section className="reminder-card glass-card"><div className="card-heading"><span className="icon-tile"><BellRing size={19} /></span><div><span className="eyebrow">SMART REMINDER</span><h2>{settings.reminders ? 'Next gentle nudge' : 'Stay on your rhythm'}</h2></div></div><strong className="next-time">{settings.reminders && nextReminder ? fmtTime(nextReminder.toISOString()) : settings.reminders ? 'Complete' : 'Off'}</strong><p>{settings.reminders ? 'Logging a drink resets the timer automatically.' : 'Enable native reminders during your work hours.'}</p><button className="secondary-button" onClick={settings.reminders ? () => setSettings(previous => ({ ...previous, reminders: false })) : enableReminders}>{settings.reminders ? 'Pause reminders' : 'Enable notifications'}<ChevronRight size={16} /></button></section>
           </div>
-          <footer><p><strong>Waterline</strong> keeps data on this device.</p><button onClick={() => setSettingsOpen(true)}>Adjust my goal <Target size={14} /></button></footer>
+          <footer><p><strong>Waterline</strong> keeps data on this device.</p><button onClick={() => showPanel('schedule')}>Adjust my goal <Target size={14} /></button></footer>
         </div>
       </section>
 
-      {settingsOpen && <SettingsPanel settings={settings} setSettings={setSettings} updateState={updateState} onCheckUpdates={() => void window.waterlineDesktop?.checkForUpdates()} onInstallUpdate={() => void window.waterlineDesktop?.installUpdate()} onClose={() => setSettingsOpen(false)} onEnable={enableReminders} />}
+      {openPanel === 'schedule' && <SchedulePanel settings={settings} setSettings={setSettings} onClose={() => setOpenPanel(null)} />}
+      {openPanel === 'settings' && <SettingsPanel settings={settings} setSettings={setSettings} updateState={updateState} onCheckUpdates={() => void window.waterlineDesktop?.checkForUpdates()} onInstallUpdate={() => void window.waterlineDesktop?.installUpdate()} onOpenWidget={() => void window.waterlineDesktop?.openWidget()} onClose={() => setOpenPanel(null)} onEnable={enableReminders} />}
       {customOpen && <CustomDialog value={customAmount} setValue={setCustomAmount} onAdd={() => addDrink(customAmount)} onClose={() => setCustomOpen(false)} />}
       {toast && <div className="toast"><Check size={16} />{toast}</div>}
     </main>
@@ -281,25 +288,33 @@ function Brand() { return <div className="brand"><img src="./icons/waterline-app
 
 function ProgressRing({ percent, size, compact = false }: { percent: number; size: number; compact?: boolean }) {
   const r = 45, c = 2 * Math.PI * r;
-  return <svg className={`progress-ring ${compact ? 'compact-ring' : ''}`} width={size} height={size} viewBox="0 0 110 110" role="img" aria-label={`${percent}% of daily water goal`}><defs><linearGradient id={`ring-gradient-${size}`} x1="0" y1="0" x2="1" y2="1"><stop stopColor="#63e6ff" /><stop offset="1" stopColor="#8b7cff" /></linearGradient><filter id={`drop-glow-${size}`}><feGaussianBlur stdDeviation="2.2" result="blur" /><feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge></filter></defs><circle className="ring-bg" cx="55" cy="55" r={r} /><circle className="ring-fill" cx="55" cy="55" r={r} stroke={`url(#ring-gradient-${size})`} strokeDasharray={c} strokeDashoffset={c - (c * percent / 100)} /><path className="ring-drop" filter={`url(#drop-glow-${size})`} d="M55 35c-6 8-12 14.5-12 22a12 12 0 0 0 24 0c0-7.5-6-14-12-22Z" /></svg>;
+  return <svg className={`progress-ring ${compact ? 'compact-ring' : ''}`} width={size} height={size} viewBox="0 0 110 110" role="img" aria-label={`${percent}% of daily water goal`}><defs><linearGradient id={`ring-gradient-${size}`} x1="0" y1="0" x2="1" y2="1"><stop stopColor="#63e6ff" /><stop offset="1" stopColor="#8b7cff" /></linearGradient><filter id={`drop-glow-${size}`}><feGaussianBlur stdDeviation="2.2" result="blur" /><feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge></filter></defs><circle className="ring-bg" cx="55" cy="55" r={r} /><circle className="ring-fill" cx="55" cy="55" r={r} stroke={`url(#ring-gradient-${size})`} strokeDasharray={c} strokeDashoffset={c - (c * percent / 100)} /><path className="ring-drop" filter={`url(#drop-glow-${size})`} d="M55 29c-6 8-12 14.5-12 22a12 12 0 0 0 24 0c0-7.5-6-14-12-22Z" /></svg>;
 }
 
-function SettingsPanel({ settings, setSettings, updateState, onCheckUpdates, onInstallUpdate, onClose, onEnable }: { settings: Settings; setSettings: (s: Settings) => void; updateState: UpdateState; onCheckUpdates: () => void; onInstallUpdate: () => void; onClose: () => void; onEnable: () => void }) {
+function SchedulePanel({ settings, setSettings, onClose }: { settings: Settings; setSettings: (s: Settings) => void; onClose: () => void }) {
   const days = [{ n: 'S', v: 0 }, { n: 'M', v: 1 }, { n: 'T', v: 2 }, { n: 'W', v: 3 }, { n: 'T', v: 4 }, { n: 'F', v: 5 }, { n: 'S', v: 6 }];
-  return <div className="overlay" onMouseDown={onClose}><aside className="settings-panel" onMouseDown={event => event.stopPropagation()} aria-label="Hydration settings">
-    <div className="panel-head"><div><span className="eyebrow">YOUR ROUTINE</span><h2>Hydration settings</h2></div><button className="icon-button" onClick={onClose} aria-label="Close settings"><X size={18} /></button></div>
+  return <div className="overlay" onMouseDown={onClose}><aside className="settings-panel" onMouseDown={event => event.stopPropagation()} aria-label="Hydration schedule">
+    <div className="panel-head"><div><span className="eyebrow">YOUR ROUTINE</span><h2>Hydration schedule</h2><p>Set the pace for your workday.</p></div><button className="icon-button" onClick={onClose} aria-label="Close schedule"><X size={18} /></button></div>
+    <label className="setting-field"><span><Target size={18} /><span><strong>Daily goal</strong><small>Set the amount that works for you.</small></span></span><div className="stepper"><button onClick={() => setSettings({ ...settings, goal: Math.max(24, settings.goal - 8) })} aria-label="Decrease daily goal"><Minus size={15} /></button><strong>{settings.goal} oz</strong><button onClick={() => setSettings({ ...settings, goal: settings.goal + 8 })} aria-label="Increase daily goal"><Plus size={15} /></button></div></label>
+    <div className="setting-field block"><span><Clock3 size={18} /><span><strong>Work schedule</strong><small>Reminders stay quiet outside these hours.</small></span></span><div className="time-row"><input aria-label="Workday start time" type="time" value={settings.start} onChange={event => setSettings({ ...settings, start: event.target.value })} /><span>to</span><input aria-label="Workday end time" type="time" value={settings.end} onChange={event => setSettings({ ...settings, end: event.target.value })} /></div><div className="day-row" aria-label="Active reminder days">{days.map((day, i) => <button key={i} className={settings.weekdays.includes(day.v) ? 'selected' : ''} onClick={() => setSettings({ ...settings, weekdays: settings.weekdays.includes(day.v) ? settings.weekdays.filter(d => d !== day.v) : [...settings.weekdays, day.v] })} aria-pressed={settings.weekdays.includes(day.v)}>{day.n}</button>)}</div></div>
+    <label className="setting-field"><span><Bell size={18} /><span><strong>Reminder interval</strong><small>Smart reminders reset when you log.</small></span></span><select value={settings.interval} onChange={event => setSettings({ ...settings, interval: Number(event.target.value) })}><option value="30">30 min</option><option value="45">45 min</option><option value="60">1 hour</option><option value="90">90 min</option><option value="120">2 hours</option></select></label>
+    <button className="save-button" onClick={onClose}>Save schedule</button>
+  </aside></div>;
+}
+
+function SettingsPanel({ settings, setSettings, updateState, onCheckUpdates, onInstallUpdate, onOpenWidget, onClose, onEnable }: { settings: Settings; setSettings: (s: Settings) => void; updateState: UpdateState; onCheckUpdates: () => void; onInstallUpdate: () => void; onOpenWidget: () => void; onClose: () => void; onEnable: () => void }) {
+  return <div className="overlay" onMouseDown={onClose}><aside className="settings-panel" onMouseDown={event => event.stopPropagation()} aria-label="App settings">
+    <div className="panel-head"><div><span className="eyebrow">WATERLINE</span><h2>App settings</h2><p>Manage how Waterline works on your desktop.</p></div><button className="icon-button" onClick={onClose} aria-label="Close settings"><X size={18} /></button></div>
     <section className={`update-card ${updateState.phase}`}>
       <div className="update-icon"><Download size={19} /></div>
       <div className="update-copy"><span className="eyebrow">APP UPDATES · V{updateState.currentVersion}</span><strong>{updateState.phase === 'downloaded' ? 'Update ready' : updateState.phase === 'downloading' || updateState.phase === 'available' ? 'New version available' : updateState.phase === 'checking' ? 'Checking for updates' : updateState.phase === 'up-to-date' ? 'You’re up to date' : 'Automatic updates'}</strong><p>{updateState.message}</p></div>
       {updateState.phase === 'downloaded' ? <button className="update-action primary" onClick={onInstallUpdate}>Restart to update</button> : <button className="update-action" onClick={onCheckUpdates} disabled={updateState.phase === 'checking' || updateState.phase === 'downloading'}><RefreshCw size={14} className={updateState.phase === 'checking' ? 'spin' : ''} /> Check now</button>}
       {updateState.percent !== null && updateState.phase !== 'up-to-date' ? <div className="update-progress"><span style={{ width: `${updateState.percent}%` }} /></div> : null}
     </section>
-    <label className="setting-field"><span><Target size={18} /><span><strong>Daily goal</strong><small>Set the amount that works for you.</small></span></span><div className="stepper"><button onClick={() => setSettings({ ...settings, goal: Math.max(24, settings.goal - 8) })}><Minus size={15} /></button><strong>{settings.goal} oz</strong><button onClick={() => setSettings({ ...settings, goal: settings.goal + 8 })}><Plus size={15} /></button></div></label>
-    <div className="setting-field block"><span><Clock3 size={18} /><span><strong>Work schedule</strong><small>Reminders stay quiet outside these hours.</small></span></span><div className="time-row"><input type="time" value={settings.start} onChange={event => setSettings({ ...settings, start: event.target.value })} /><span>to</span><input type="time" value={settings.end} onChange={event => setSettings({ ...settings, end: event.target.value })} /></div><div className="day-row">{days.map((day, i) => <button key={i} className={settings.weekdays.includes(day.v) ? 'selected' : ''} onClick={() => setSettings({ ...settings, weekdays: settings.weekdays.includes(day.v) ? settings.weekdays.filter(d => d !== day.v) : [...settings.weekdays, day.v] })}>{day.n}</button>)}</div></div>
-    <label className="setting-field"><span><Bell size={18} /><span><strong>Reminder interval</strong><small>Smart reminders reset when you log.</small></span></span><select value={settings.interval} onChange={event => setSettings({ ...settings, interval: Number(event.target.value) })}><option value="30">30 min</option><option value="45">45 min</option><option value="60">1 hour</option><option value="90">90 min</option><option value="120">2 hours</option></select></label>
     <label className="setting-field"><span><Volume2 size={18} /><span><strong>Interface sounds</strong><small>Soft chimes for logging and reminders.</small></span></span><button className={`sound-toggle ${settings.sounds ? 'on' : ''}`} onClick={() => setSettings({ ...settings, sounds: !settings.sounds })} aria-pressed={settings.sounds}><span /></button></label>
     <div className="notification-callout"><BellRing size={20} /><div><strong>{settings.reminders ? 'Notifications enabled' : 'Turn on desk nudges'}</strong><p>{settings.reminders ? 'Waterline will remind you only when you are due.' : 'Uses native Windows notifications.'}</p></div><button onClick={settings.reminders ? () => setSettings({ ...settings, reminders: false }) : onEnable}>{settings.reminders ? 'Turn off' : 'Enable'}</button></div>
-    <button className="save-button" onClick={onClose}>Save routine</button>
+    <div className="setting-field widget-setting"><span><Droplet size={18} /><span><strong>Desktop widget</strong><small>Keep today’s progress and quick-add controls nearby.</small></span></span><button className="panel-action" onClick={onOpenWidget}>Open widget <ExternalLink size={14} /></button></div>
+    <button className="save-button" onClick={onClose}>Done</button>
   </aside></div>;
 }
 
