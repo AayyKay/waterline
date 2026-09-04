@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { BarChart3, Bell, BellRing, CalendarClock, Check, ChevronDown, ChevronRight, Clock3, Download, Droplet, ExternalLink, GlassWater, Minus, Plus, RefreshCw, Settings2, Sparkles, Target, Undo2, Volume2, Waves, X } from 'lucide-react';
+import { BarChart3, Bell, BellRing, CalendarClock, Check, ChevronDown, ChevronRight, Clock3, Download, Droplet, ExternalLink, GlassWater, Minus, Plus, RefreshCw, Settings2, Target, Undo2, Volume2, Waves, X } from 'lucide-react';
 
 type Drink = { id: number; amount: number; at: string };
 type Settings = { goal: number; interval: number; start: string; end: string; reminders: boolean; weekdays: number[]; sounds: boolean };
@@ -72,6 +72,22 @@ function App() {
   const start = new Date(now); start.setHours(startHour, startMin, 0, 0);
   const end = new Date(now); end.setHours(endHour, endMin, 0, 0);
   const inWorkHours = isWorkday && now >= start && now <= end;
+  const scheduleDuration = Math.max(1, end.getTime() - start.getTime());
+  const scheduleProgress = !isWorkday || now < start ? 0 : now > end ? 1 : (now.getTime() - start.getTime()) / scheduleDuration;
+  const targetNow = Math.round(settings.goal * scheduleProgress);
+  const paceDifference = Math.round(total - targetNow);
+  const paceTolerance = Math.max(4, Math.round(settings.goal * .05));
+  const catchUpAmount = Math.min(remaining, 16, Math.max(8, Math.ceil(Math.max(0, -paceDifference) / 4) * 4));
+  const scheduleLabel = `${start.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}–${end.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+  const pace = (() => {
+    if (remaining === 0) return { tone: 'complete', title: 'Goal complete', detail: 'You reached today’s goal. Anything else is a bonus.' };
+    if (!isWorkday) return { tone: 'quiet', title: 'No plan today', detail: 'Pace is only measured on your selected workdays.' };
+    if (now < start) return { tone: 'quiet', title: `Starts at ${start.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`, detail: 'We’ll compare your intake with an even pace once work hours begin.' };
+    if (now > end) return { tone: 'behind', title: `${remaining} oz left`, detail: 'Your workday plan has ended, but you can still finish today.' };
+    if (paceDifference < -paceTolerance) return { tone: 'behind', title: `${Math.abs(paceDifference)} oz behind`, detail: `${catchUpAmount} oz now gets you closer to today’s line.` };
+    if (paceDifference > paceTolerance) return { tone: 'ahead', title: `${paceDifference} oz ahead`, detail: 'You’ve built some breathing room. Keep sipping normally.' };
+    return { tone: 'steady', title: 'Right on schedule', detail: 'Your intake matches an even pace through the workday.' };
+  })();
   const lastDrink = drinks.at(-1);
   const nextReminder = reminderStatus.dueAt ? new Date(reminderStatus.dueAt) : null;
 
@@ -208,7 +224,7 @@ function App() {
         <div className="quick-row compact-quick"><button onClick={() => addDrink(8)}>+ 8 oz</button><button onClick={() => addDrink(16)}>+ 16 oz</button><button onClick={() => setCustomOpen(true)}>Custom</button></div>
         <div className="widget-divider" />
         <p className="compact-next"><Bell size={15} /> {settings.reminders && nextReminder ? `Next reminder ${fmtTime(nextReminder.toISOString())}` : settings.reminders ? 'No more reminders today' : 'Reminders are off'}</p>
-        <div className="mini-pace"><div><strong>{pct >= 60 ? 'Right on track' : 'A little behind'}</strong><span>{pct}% of your goal</span></div><div className="pace-line"><span style={{ width: `${pct}%` }} /></div></div>
+        <div className="mini-pace"><div><strong>{pace.title}</strong><span>{inWorkHours ? `${targetNow} oz due by now` : scheduleLabel}</span></div><div className="pace-line"><span style={{ width: `${pct}%` }} />{inWorkHours && <i style={{ left: `${scheduleProgress * 100}%` }} />}</div></div>
       </section>
       {customOpen && <CustomDialog value={customAmount} setValue={setCustomAmount} onAdd={() => addDrink(customAmount)} onClose={() => setCustomOpen(false)} />}
       {toast && <div className="toast"><Check size={16} />{toast}</div>}
@@ -246,7 +262,7 @@ function App() {
 
           <div className="dashboard-grid" id="insights">
             <section className="history-card glass-card"><div className="section-title"><div><span className="eyebrow">LAST 7 DAYS</span><h2>Hydration rhythm</h2></div><span className="streak">{Math.max(0, streak)} day streak <span>↗</span></span></div><div className="bars">{week.map((day, i) => <div className="bar-col" key={i}><div className="bar-track"><span className={day.hit ? 'hit' : ''} style={{ height: `${Math.max(8, Math.min(100, (day.value / settings.goal) * 100))}%` }}>{day.hit && <Check size={12} />}</span></div><small>{day.label}</small></div>)}</div></section>
-            <section className="pace-card glass-card"><div className="section-title"><div><span className="eyebrow">TODAY’S PACE</span><h2>{pct >= 60 ? 'Right on track' : 'A little behind'}</h2></div><span className="pace-pill"><Sparkles size={14} />{pct >= 60 ? 'Steady' : 'Catch up'}</span></div><div className="pace-graph"><svg viewBox="0 0 420 72" preserveAspectRatio="none" aria-hidden="true"><path d="M0 49 C45 46, 56 29, 103 39 S167 58, 210 37 S270 24, 310 42 S365 52, 420 23" /><circle cx="414" cy="24" r="5" /></svg></div><div className="pace-labels"><span>9 AM</span><span>Now</span><span>5 PM</span></div></section>
+            <section className={`pace-card glass-card ${pace.tone}`}><div className="section-title"><div><span className="eyebrow">TODAY’S PLAN</span><h2>{pace.title}</h2></div><span className="pace-pill"><Clock3 size={14} />{scheduleLabel}</span></div><div className="pace-comparison"><div><span>Logged</span><strong>{total} <small>oz</small></strong></div><div className="pace-divider" /><div><span>Target by now</span><strong>{targetNow} <small>oz</small></strong></div></div><div className="pace-track" aria-label={`${total} ounces logged; ${targetNow} ounces targeted by now`}><span className="pace-fill" style={{ width: `${pct}%` }} />{isWorkday && <i className="pace-target" style={{ left: `${scheduleProgress * 100}%` }}><b>NOW</b></i>}</div><div className="pace-footer"><p>{pace.detail}</p>{pace.tone === 'behind' && inWorkHours && catchUpAmount > 0 && <button onClick={() => addDrink(catchUpAmount)}><GlassWater size={15} /> Log {catchUpAmount} oz</button>}</div></section>
             <section className="recent-card glass-card"><div className="section-title"><div><span className="eyebrow">TODAY</span><h2>Recent sips</h2></div>{drinks.length > 0 && <button className="text-button" onClick={() => setDrinkState(previous => ({ ...previous, items: previous.items.slice(0, -1) }))}><Undo2 size={14} /> Undo</button>}</div><div className="drink-list">{drinks.length === 0 ? <div className="empty-state"><GlassWater size={23} /><p>Your first glass is one tap away.</p></div> : drinks.slice(-3).reverse().map(drink => <div className="drink-row" key={drink.id}><span className="mini-glass"><Droplet size={15} /></span><div><strong>{drink.amount} oz water</strong><small>{fmtTime(drink.at)}</small></div><Check size={15} /></div>)}</div></section>
             <section className="reminder-card glass-card"><div className="card-heading"><span className="icon-tile"><BellRing size={19} /></span><div><span className="eyebrow">SMART REMINDER</span><h2>{settings.reminders ? 'Next gentle nudge' : 'Stay on your rhythm'}</h2></div></div><strong className="next-time">{settings.reminders && nextReminder ? fmtTime(nextReminder.toISOString()) : settings.reminders ? 'Complete' : 'Off'}</strong><p>{settings.reminders ? 'Logging a drink resets the timer automatically.' : 'Enable native reminders during your work hours.'}</p><button className="secondary-button" onClick={settings.reminders ? () => setSettings(previous => ({ ...previous, reminders: false })) : enableReminders}>{settings.reminders ? 'Pause reminders' : 'Enable notifications'}<ChevronRight size={16} /></button></section>
           </div>

@@ -137,11 +137,20 @@ header { display: flex; align-items: center; justify-content: space-between; min
 .bar-track span { width: 100%; min-height: 8%; display: grid; place-items: start center; padding-top: 5px; border-radius: inherit; background: linear-gradient(to top, #3163ca, #74c9ff); box-shadow: 0 0 17px rgba(59, 137, 255, .22); transition: height .55s ease; }
 .bar-track span.hit { background: linear-gradient(to top, #5b69db, #62e1ff); }
 .bar-col small { color: #8da0c0; font-size: 10px; }
-.pace-graph { margin-top: 40px; height: 72px; border-bottom: 1px solid var(--line); background: linear-gradient(to top, rgba(74, 127, 244, .05), transparent); }
-.pace-graph svg { width: 100%; height: 100%; overflow: visible; }
-.pace-graph path { fill: none; stroke: #69a3ff; stroke-width: 3; filter: drop-shadow(0 0 5px rgba(82,149,255,.6)); }
-.pace-graph circle { fill: #88e6ff; stroke: #4b76e9; stroke-width: 3; }
-.pace-labels { display: flex; justify-content: space-between; margin-top: 8px; color: #7286a9; font-size: 9px; }
+.pace-comparison { display: grid; grid-template-columns: 1fr 1px 1fr; align-items: center; gap: 18px; margin-top: 24px; }
+.pace-comparison > div:not(.pace-divider) { display: flex; flex-direction: column; gap: 4px; }
+.pace-comparison span { color: #7f94b7; font-size: 9px; text-transform: uppercase; letter-spacing: .8px; }
+.pace-comparison strong { font-size: 25px; letter-spacing: -.6px; }
+.pace-comparison strong small { color: #8ca2c5; font-size: 11px; font-weight: 600; }
+.pace-divider { width: 1px; height: 37px; background: var(--line); }
+.pace-track { position: relative; height: 8px; margin: 24px 0 17px; border-radius: 99px; background: rgba(100,129,182,.15); }
+.pace-fill { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #4c75ed, #71e1ff); box-shadow: 0 0 10px rgba(83,173,255,.48); transition: width .55s ease; }
+.pace-target { position: absolute; top: -5px; width: 2px; height: 18px; transform: translateX(-1px); border-radius: 2px; background: #e9f6ff; box-shadow: 0 0 8px rgba(233,246,255,.7); }
+.pace-target b { position: absolute; top: -16px; left: 50%; transform: translateX(-50%); color: #9fb4d4; font-size: 7px; font-style: normal; letter-spacing: .7px; }
+.pace-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.pace-footer p { margin: 0; color: #8fa3c3; font-size: 10px; line-height: 1.45; }
+.pace-footer button { flex: 0 0 auto; height: 34px; display: flex; align-items: center; gap: 6px; padding: 0 11px; border: 1px solid rgba(103,206,255,.33); border-radius: 11px; background: rgba(54,112,209,.28); color: #dff7ff; font-size: 10px; font-weight: 700; cursor: pointer; }
+.pace-card.ahead .pace-pill, .pace-card.complete .pace-pill { color: #a9f0dc; border-color: rgba(91,218,184,.22); background: rgba(49,166,137,.08); }
 .text-button { display: flex; align-items: center; gap: 5px; border: 0; background: transparent; color: #8fa7cf; font-size: 11px; cursor: pointer; }
 .drink-list { margin-top: 15px; }
 .drink-row { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid rgba(129,154,205,.11); }
@@ -250,8 +259,9 @@ body.widget-mode { min-width: 0; min-height: 0; background: transparent; overflo
 .mini-pace > div:first-child { display: flex; justify-content: space-between; align-items: center; }
 .mini-pace strong { font-size: 12px; }
 .mini-pace span { color: #7890b8; font-size: 9px; }
-.pace-line { height: 5px; margin-top: 12px; overflow: hidden; border-radius: 99px; background: rgba(100,129,182,.15); }
+.pace-line { position: relative; height: 5px; margin-top: 12px; border-radius: 99px; background: rgba(100,129,182,.15); }
 .pace-line span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #4c75ed, #71e1ff); box-shadow: 0 0 9px rgba(83,173,255,.5); }
+.pace-line i { position: absolute; top: -3px; width: 2px; height: 11px; transform: translateX(-1px); border-radius: 2px; background: #e8f4ff; box-shadow: 0 0 6px rgba(232,244,255,.7); }
 
 html.widget-collapsed,
 body.widget-collapsed { background: transparent; }
