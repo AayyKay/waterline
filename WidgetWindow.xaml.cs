@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Media.Animation;
 
 namespace Waterline;
 
@@ -35,6 +36,14 @@ public partial class WidgetWindow : Window
     private void Add12_Click(object sender, RoutedEventArgs e) => _viewModel.AddDrink(12);
     private void Add16_Click(object sender, RoutedEventArgs e) => _viewModel.AddDrink(16);
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
+    private void OpenDashboard_Click(object sender, MouseButtonEventArgs e)
+    {
+        if (System.Windows.Application.Current.MainWindow is MainWindow main)
+        {
+            main.Show();
+            main.Activate();
+        }
+    }
 
     private void Custom_Click(object sender, RoutedEventArgs e)
     {
@@ -43,10 +52,12 @@ public partial class WidgetWindow : Window
     }
 
     private void Collapse_Click(object sender, RoutedEventArgs e)
+        => SetCollapsedForSnapshot();
+
+    public void SetCollapsedForSnapshot()
     {
         ExpandedCard.Visibility = Visibility.Collapsed;
         CollapsedOrb.Visibility = Visibility.Visible;
-        ResizeMode = ResizeMode.NoResize;
         MinWidth = MinHeight = 0;
         Width = Height = 118;
         PositionBottomRight();
@@ -56,9 +67,8 @@ public partial class WidgetWindow : Window
     {
         CollapsedOrb.Visibility = Visibility.Collapsed;
         ExpandedCard.Visibility = Visibility.Visible;
-        ResizeMode = ResizeMode.CanResizeWithGrip;
-        MinWidth = 360;
-        MinHeight = 430;
+        MinWidth = 410;
+        MinHeight = 490;
         Width = 410;
         Height = 490;
         PositionBottomRight();

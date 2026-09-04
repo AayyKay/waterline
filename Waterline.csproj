@@ -8,13 +8,17 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>Waterline</AssemblyName>
     <RootNamespace>Waterline</RootNamespace>
-    <Version>2.0.0</Version>
     <Authors>Waterline</Authors>
     <Product>Waterline</Product>
     <Description>A native Windows hydration tracker.</Description>
+    <ApplicationIcon>public\icons\waterline-app.ico</ApplicationIcon>
+    <AssemblyVersion>2.0.1.0</AssemblyVersion>
+    <FileVersion>2.0.1.0</FileVersion>
+    <Version>2.0.1</Version>
   </PropertyGroup>
   <ItemGroup>
     <Resource Include="public\icons\waterline-app.png" Link="Assets\waterline-app.png" />
+    <Resource Include="public\icons\waterline-app.ico" Link="Assets\waterline-app.ico" />
     <Compile Remove="Waterline.Tests\**\*.cs" />
     <None Remove="Waterline.Tests\**\*" />
   </ItemGroup>

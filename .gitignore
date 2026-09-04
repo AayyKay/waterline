@@ -10,4 +10,5 @@ release/
 node_modules/
 dist/
 *.tsbuildinfo
+qa/
 .DS_Store

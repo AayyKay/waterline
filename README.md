@@ -66,4 +66,4 @@ dotnet publish Waterline.csproj -c Release -r win-x64 --self-contained true -o p
 2. Commit and push the version change.
 3. Create and push a matching tag, such as `v2.0.0`.
 
-The release workflow publishes `Waterline-Setup-<version>.exe` to GitHub Releases. Installed copies can discover and install that release from the Settings panel.
+The release workflow publishes `Waterline-Setup-<version>.exe` to GitHub Releases. Installed copies can discover and install that release from the Waterline settings panel.

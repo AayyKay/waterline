@@ -3,30 +3,25 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              ShutdownMode="OnExplicitShutdown">
   <Application.Resources>
-    <Color x:Key="Ink">#FFF5FAFF</Color>
-    <Color x:Key="Muted">#FF8EA6C9</Color>
-    <Color x:Key="Cyan">#FF66E2FF</Color>
-    <Color x:Key="Blue">#FF4A7EF2</Color>
-    <SolidColorBrush x:Key="InkBrush" Color="{StaticResource Ink}" />
-    <SolidColorBrush x:Key="MutedBrush" Color="{StaticResource Muted}" />
-    <SolidColorBrush x:Key="CyanBrush" Color="{StaticResource Cyan}" />
-    <SolidColorBrush x:Key="PanelBrush" Color="#D90B1A38" />
-    <SolidColorBrush x:Key="PanelStrongBrush" Color="#F20A1732" />
-    <SolidColorBrush x:Key="LineBrush" Color="#2B91B3E5" />
+    <SolidColorBrush x:Key="InkBrush" Color="#FFF3F7FF" />
+    <SolidColorBrush x:Key="MutedBrush" Color="#FF94A6C7" />
+    <SolidColorBrush x:Key="CyanBrush" Color="#FF66E2FF" />
+    <SolidColorBrush x:Key="LineBrush" Color="#2E91AEE8" />
+    <SolidColorBrush x:Key="PanelBrush" Color="#D90B1B3B" />
 
     <Style TargetType="Window">
       <Setter Property="FontFamily" Value="Segoe UI Variable Text, Segoe UI" />
       <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
       <Setter Property="Background" Value="#FF050B1D" />
       <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
+      <Setter Property="TextOptions.TextRenderingMode" Value="ClearType" />
     </Style>
-    <Style TargetType="TextBlock">
+    <Style TargetType="TextBlock"><Setter Property="Foreground" Value="{StaticResource InkBrush}" /></Style>
+
+    <Style x:Key="WaterButton" TargetType="Button">
       <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
-    </Style>
-    <Style TargetType="Button">
-      <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
-      <Setter Property="Background" Value="#FF173565" />
-      <Setter Property="BorderBrush" Value="#556AA8E8" />
+      <Setter Property="Background" Value="#85132958" />
+      <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="Padding" Value="14,9" />
       <Setter Property="Cursor" Value="Hand" />
@@ -34,39 +29,49 @@
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="Button">
-            <Border x:Name="Border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="11" Padding="{TemplateBinding Padding}">
+            <Border x:Name="Surface" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{TemplateBinding Tag}" Padding="{TemplateBinding Padding}" RenderTransformOrigin=".5,.5">
+              <Border.RenderTransform><ScaleTransform ScaleX="1" ScaleY="1" /></Border.RenderTransform>
               <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
             </Border>
             <ControlTemplate.Triggers>
-              <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Border" Property="Background" Value="#FF28599F" /></Trigger>
-              <Trigger Property="IsPressed" Value="True"><Setter TargetName="Border" Property="Opacity" Value="0.78" /></Trigger>
-              <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Border" Property="Opacity" Value="0.45" /></Trigger>
+              <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Surface" Property="Background" Value="#C1264D8B" /><Setter TargetName="Surface" Property="BorderBrush" Value="#8A66E2FF" /></Trigger>
+              <Trigger Property="IsPressed" Value="True"><Setter TargetName="Surface" Property="RenderTransform"><Setter.Value><ScaleTransform ScaleX=".97" ScaleY=".97" /></Setter.Value></Setter></Trigger>
+              <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Surface" Property="Opacity" Value=".45" /></Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>
         </Setter.Value>
       </Setter>
+      <Setter Property="Tag" Value="13" />
     </Style>
-    <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-      <Setter Property="Background" Value="#FF397CE9" />
-      <Setter Property="BorderBrush" Value="#FF66D5FF" />
-      <Setter Property="Padding" Value="18,11" />
+    <Style TargetType="Button" BasedOn="{StaticResource WaterButton}" />
+    <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource WaterButton}">
+      <Setter Property="Background" Value="#FF397CE9" /><Setter Property="BorderBrush" Value="#8F7DD4FF" /><Setter Property="Padding" Value="20,12" /><Setter Property="Tag" Value="15" />
+    </Style>
+    <Style x:Key="IconButton" TargetType="Button" BasedOn="{StaticResource WaterButton}">
+      <Setter Property="Width" Value="40" /><Setter Property="Height" Value="40" /><Setter Property="Padding" Value="0" /><Setter Property="FontSize" Value="17" /><Setter Property="Tag" Value="12" />
+    </Style>
+    <Style x:Key="NavButton" TargetType="Button" BasedOn="{StaticResource WaterButton}">
+      <Setter Property="Width" Value="48" /><Setter Property="Height" Value="48" /><Setter Property="Padding" Value="0" /><Setter Property="Background" Value="Transparent" /><Setter Property="BorderBrush" Value="Transparent" /><Setter Property="Foreground" Value="#FF7185AD" /><Setter Property="FontSize" Value="19" /><Setter Property="Tag" Value="14" />
     </Style>
     <Style x:Key="Card" TargetType="Border">
-      <Setter Property="Background" Value="{StaticResource PanelBrush}" />
-      <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
-      <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="CornerRadius" Value="20" />
-      <Setter Property="Padding" Value="22" />
+      <Setter Property="Background"><Setter.Value><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#C60F244B" /><GradientStop Color="#B2071533" Offset="1" /></LinearGradientBrush></Setter.Value></Setter>
+      <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" /><Setter Property="BorderThickness" Value="1" /><Setter Property="CornerRadius" Value="21" /><Setter Property="Padding" Value="24" />
     </Style>
-    <Style TargetType="CheckBox">
-      <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
-      <Setter Property="VerticalAlignment" Value="Center" />
+    <Style x:Key="WaterTextBox" TargetType="TextBox">
+      <Setter Property="Background" Value="#C9071736" /><Setter Property="Foreground" Value="{StaticResource InkBrush}" /><Setter Property="CaretBrush" Value="{StaticResource CyanBrush}" /><Setter Property="BorderBrush" Value="{StaticResource LineBrush}" /><Setter Property="BorderThickness" Value="1" /><Setter Property="Padding" Value="12,9" /><Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TextBox"><Border x:Name="Box" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="11"><ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" /></Border><ControlTemplate.Triggers><Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Box" Property="BorderBrush" Value="#B866E2FF" /></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
     </Style>
-    <Style TargetType="ComboBox">
-      <Setter Property="Background" Value="#FF10254E" />
-      <Setter Property="Foreground" Value="#FF07132D" />
-      <Setter Property="Padding" Value="8,5" />
-      <Setter Property="MinWidth" Value="90" />
+    <Style x:Key="PillToggle" TargetType="ToggleButton">
+      <Setter Property="Foreground" Value="#FF8CA2C5" /><Setter Property="Background" Value="#6B11264D" /><Setter Property="BorderBrush" Value="{StaticResource LineBrush}" /><Setter Property="BorderThickness" Value="1" /><Setter Property="Padding" Value="11,8" /><Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ToggleButton"><Border x:Name="ToggleSurface" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="10" Padding="{TemplateBinding Padding}"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" /></Border><ControlTemplate.Triggers><Trigger Property="IsChecked" Value="True"><Setter TargetName="ToggleSurface" Property="Background" Value="#763A78D8" /><Setter TargetName="ToggleSurface" Property="BorderBrush" Value="#A866E2FF" /><Setter Property="Foreground" Value="#FFF1FCFF" /></Trigger><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ToggleSurface" Property="BorderBrush" Value="#8666E2FF" /></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+    </Style>
+    <Style x:Key="SwitchToggle" TargetType="ToggleButton">
+      <Setter Property="Width" Value="48" /><Setter Property="Height" Value="26" /><Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ToggleButton"><Border x:Name="Track" Background="#FF172746" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="13"><Ellipse x:Name="Thumb" Width="18" Height="18" Fill="#FF7184A6" HorizontalAlignment="Left" Margin="3" /></Border><ControlTemplate.Triggers><Trigger Property="IsChecked" Value="True"><Setter TargetName="Track" Property="Background" Value="#A54197EB" /><Setter TargetName="Track" Property="BorderBrush" Value="#A866E2FF" /><Setter TargetName="Thumb" Property="Fill" Value="{StaticResource CyanBrush}" /><Setter TargetName="Thumb" Property="HorizontalAlignment" Value="Right" /></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+    </Style>
+    <Style TargetType="ScrollBar">
+      <Setter Property="Width" Value="7" /><Setter Property="Background" Value="Transparent" />
+      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ScrollBar"><Grid Background="Transparent"><Track x:Name="PART_Track" IsDirectionReversed="True"><Track.DecreaseRepeatButton><RepeatButton Command="ScrollBar.PageUpCommand" Opacity="0" /></Track.DecreaseRepeatButton><Track.Thumb><Thumb><Thumb.Template><ControlTemplate TargetType="Thumb"><Border Background="#5E66E2FF" CornerRadius="4" Margin="1" /></ControlTemplate></Thumb.Template></Thumb></Track.Thumb><Track.IncreaseRepeatButton><RepeatButton Command="ScrollBar.PageDownCommand" Opacity="0" /></Track.IncreaseRepeatButton></Track></Grid></ControlTemplate></Setter.Value></Setter>
     </Style>
   </Application.Resources>
 </Application>

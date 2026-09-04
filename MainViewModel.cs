@@ -1,6 +1,5 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Media;
 using System.Runtime.CompilerServices;
 using System.Windows.Threading;
 
@@ -69,7 +68,13 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     }
     public IReadOnlyList<DailyTotal> WeeklyTotals => Enumerable.Range(0, 7)
         .Select(offset => DateOnly.FromDateTime(_now.LocalDateTime.Date.AddDays(offset - 6)))
-        .Select(day => new DailyTotal(day, _state.Drinks.Where(d => DateOnly.FromDateTime(d.At.LocalDateTime) == day).Sum(d => d.AmountOz)))
+        .Select(day =>
+        {
+            var total = _state.Drinks.Where(d => DateOnly.FromDateTime(d.At.LocalDateTime) == day).Sum(d => d.AmountOz);
+            var label = day == DateOnly.FromDateTime(_now.LocalDateTime.Date) ? "Today" : day.ToDateTime(TimeOnly.MinValue).ToString("ddd")[..1];
+            var height = Math.Clamp(total / Math.Max(1, Settings.DailyGoalOz) * 105, 8, 105);
+            return new DailyTotal(label, total, height);
+        })
         .ToList();
 
     public void AddDrink(double amountOz)
@@ -79,7 +84,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         _state.Drinks.Add(entry);
         Drinks.Insert(0, entry);
         SaveAndRefresh();
-        if (Settings.SoundsEnabled) SystemSounds.Asterisk.Play();
+        if (Settings.SoundsEnabled) SoundService.PlayLog();
     }
 
     public void UndoLastDrink()
@@ -116,7 +121,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         {
             _state.LastNotificationAt = _now;
             _store.Save(_state);
-            if (Settings.SoundsEnabled) SystemSounds.Exclamation.Play();
+            if (Settings.SoundsEnabled) SoundService.PlayReminder();
             NotificationRequested?.Invoke(this, new AppNotification("Time for a small water break", $"{RemainingOz:0.#} oz left today. Take a sip, then log it in Waterline."));
         }
         RefreshAll();

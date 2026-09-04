@@ -15,7 +15,9 @@ public partial class App : System.Windows.Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
-        _singleInstanceMutex = new Mutex(true, "Waterline.Native.Windows.SingleInstance", out var createdNew);
+        var isSnapshot = Array.IndexOf(e.Args, "--snapshot") >= 0;
+        var mutexName = isSnapshot ? $"Waterline.Native.Windows.Snapshot.{Environment.ProcessId}" : "Waterline.Native.Windows.SingleInstance";
+        _singleInstanceMutex = new Mutex(true, mutexName, out var createdNew);
         if (!createdNew)
         {
             try { EventWaitHandle.OpenExisting("Waterline.Native.Windows.ShowMain").Set(); } catch { }
@@ -23,17 +25,43 @@ public partial class App : System.Windows.Application
             return;
         }
 
-        _showWindowEvent = new EventWaitHandle(false, EventResetMode.AutoReset, "Waterline.Native.Windows.ShowMain");
+        _showWindowEvent = new EventWaitHandle(false, EventResetMode.AutoReset, isSnapshot ? $"Waterline.Native.Windows.SnapshotShow.{Environment.ProcessId}" : "Waterline.Native.Windows.ShowMain");
         _instanceListenerCancellation = new CancellationTokenSource();
 
         var store = new AppStateStore();
         var viewModel = new MainViewModel(store);
         _mainWindow = new MainWindow(viewModel);
+        var snapshotIndex = Array.IndexOf(e.Args, "--snapshot");
+        if (snapshotIndex >= 0 && snapshotIndex + 1 < e.Args.Length)
+        {
+            _mainWindow.Show();
+            _ = CaptureSnapshotAsync(viewModel, e.Args[snapshotIndex + 1], snapshotIndex + 2 < e.Args.Length ? e.Args[snapshotIndex + 2] : "main");
+            return;
+        }
         _tray = new TrayService(viewModel, ShowMainWindow, ExitApplication);
         viewModel.NotificationRequested += (_, notification) =>
             _tray.ShowNotification(notification.Title, notification.Message);
         _mainWindow.Show();
         _ = ListenForSecondInstanceAsync(_instanceListenerCancellation.Token);
+    }
+
+    private async Task CaptureSnapshotAsync(MainViewModel viewModel, string path, string mode)
+    {
+        Window target = _mainWindow!;
+        if (mode == "settings") _mainWindow!.ShowSettingsForSnapshot();
+        if (mode is "widget" or "collapsed")
+        {
+            _mainWindow!.Hide();
+            var widget = new WidgetWindow(viewModel);
+            widget.Show();
+            if (mode == "collapsed") widget.SetCollapsedForSnapshot();
+            target = widget;
+        }
+        await Task.Delay(700);
+        VisualSnapshot.Save(target, path);
+        target.Close();
+        viewModel.Dispose();
+        Shutdown();
     }
 
     private async Task ListenForSecondInstanceAsync(CancellationToken cancellationToken)

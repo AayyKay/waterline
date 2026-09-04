@@ -32,4 +32,4 @@ public sealed class WaterlineState
 
 public readonly record struct ReminderPlan(DateTimeOffset? DueAt, bool IsActive);
 public readonly record struct AppNotification(string Title, string Message);
-public readonly record struct DailyTotal(DateOnly Day, double TotalOz);
+public readonly record struct DailyTotal(string Label, double TotalOz, double BarHeight);

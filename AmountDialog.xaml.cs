@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Windows;
+using System.Windows.Input;
 
 namespace Waterline;
 
@@ -7,6 +8,11 @@ public partial class AmountDialog : Window
 {
     public AmountDialog() => InitializeComponent();
     public double AmountOz { get; private set; }
+
+    private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ButtonState == MouseButtonState.Pressed) DragMove();
+    }
 
     private void Add_Click(object sender, RoutedEventArgs e)
     {
