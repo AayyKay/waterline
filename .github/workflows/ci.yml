@@ -1,0 +1,19 @@
+name: Verify native Windows app
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Build native Windows app
+        run: dotnet build Waterline.csproj --configuration Release
+      - name: Run reminder tests
+        run: dotnet run --project Waterline.Tests/Waterline.Tests.csproj --configuration Release

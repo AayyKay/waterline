@@ -13,17 +13,25 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-dotnet@v4
         with:
-          version: 10
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+          dotnet-version: 8.0.x
+      - name: Verify tag matches project version
+        shell: pwsh
+        run: |
+          $project = [xml](Get-Content Waterline.csproj)
+          $version = $project.Project.PropertyGroup.Version
+          if ("v$version" -ne $env:GITHUB_REF_NAME) { throw "Tag $env:GITHUB_REF_NAME does not match project version $version" }
+      - name: Test native reminder scheduler
+        run: dotnet run --project Waterline.Tests/Waterline.Tests.csproj --configuration Release
+      - name: Publish self-contained Windows app
+        run: dotnet publish Waterline.csproj --configuration Release --runtime win-x64 --self-contained true --output publish -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
       - name: Build Windows installer
-        run: pnpm desktop:build
+        shell: pwsh
+        run: |
+          $project = [xml](Get-Content Waterline.csproj)
+          $version = $project.Project.PropertyGroup.Version
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppVersion=$version" installer\Waterline.iss
       - name: Publish GitHub Release
         shell: pwsh
         env:
@@ -34,6 +42,4 @@ jobs:
             --repo $env:GITHUB_REPOSITORY `
             --title "Waterline $version" `
             --generate-notes `
-            "release/Waterline-Setup-$version.exe" `
-            "release/Waterline-Setup-$version.exe.blockmap" `
-            "release/latest.yml"
+            "release/Waterline-Setup-$version.exe"

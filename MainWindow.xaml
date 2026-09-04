@@ -1,0 +1,163 @@
+<Window x:Class="Waterline.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Waterline" Width="1180" Height="800" MinWidth="900" MinHeight="650"
+        Icon="pack://application:,,,/Assets/waterline-app.png"
+        WindowStartupLocation="CenterScreen">
+  <Window.Background>
+    <RadialGradientBrush Center="0.72,0.12" GradientOrigin="0.72,0.12" RadiusX="1" RadiusY="1">
+      <GradientStop Color="#FF102D62" Offset="0" />
+      <GradientStop Color="#FF050B1D" Offset="0.62" />
+    </RadialGradientBrush>
+  </Window.Background>
+  <Grid>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="92" />
+      <ColumnDefinition Width="*" />
+    </Grid.ColumnDefinitions>
+
+    <Border Grid.Column="0" Background="#D907142D" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,1,0">
+      <DockPanel Margin="14,24">
+        <StackPanel DockPanel.Dock="Top">
+          <Image Source="pack://application:,,,/Assets/waterline-app.png" Width="48" Height="48" Margin="0,0,0,28" />
+          <Button Content="Today" Margin="0,0,0,10" Click="Today_Click" Padding="8,12" />
+          <Button Content="Widget" Margin="0,0,0,10" Click="Widget_Click" Padding="8,12" />
+          <Button Content="Settings" Click="Settings_Click" Padding="6,12" />
+        </StackPanel>
+        <Ellipse DockPanel.Dock="Bottom" Width="9" Height="9" Fill="{StaticResource CyanBrush}" HorizontalAlignment="Center" />
+      </DockPanel>
+    </Border>
+
+    <ScrollViewer x:Name="MainScroll" Grid.Column="1" VerticalScrollBarVisibility="Auto">
+      <Grid Margin="34,26,34,34">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" Margin="0,0,0,22">
+          <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+          <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+            <Image Source="pack://application:,,,/Assets/waterline-app.png" Width="42" Height="42" Margin="0,0,12,0" />
+            <StackPanel>
+              <TextBlock Text="waterline" FontSize="22" FontWeight="Bold" />
+              <TextBlock Text="NATIVE WINDOWS HYDRATION" Foreground="{StaticResource MutedBrush}" FontSize="9" />
+            </StackPanel>
+          </StackPanel>
+          <StackPanel Grid.Column="1" Orientation="Horizontal">
+            <TextBlock Text="●  Stored locally" Foreground="{StaticResource CyanBrush}" VerticalAlignment="Center" Margin="0,0,18,0" />
+            <Button Content="Open desktop widget" Click="Widget_Click" />
+          </StackPanel>
+        </Grid>
+
+        <Border Grid.Row="1" Style="{StaticResource Card}" Padding="34" Margin="0,0,0,18">
+          <Grid>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="1.3*" /><ColumnDefinition Width="0.9*" /></Grid.ColumnDefinitions>
+            <StackPanel VerticalAlignment="Center" Margin="0,8,25,8">
+              <TextBlock Text="{Binding DateLabel}" Foreground="{StaticResource CyanBrush}" FontSize="11" FontWeight="SemiBold" />
+              <TextBlock Text="Today" FontSize="54" FontWeight="SemiBold" Margin="0,4,0,6" />
+              <TextBlock Text="Build a better hydration habit, one sip at a time." Foreground="{StaticResource MutedBrush}" FontSize="14" />
+              <StackPanel Orientation="Horizontal" Margin="0,28,0,0">
+                <Button Style="{StaticResource PrimaryButton}" Content="＋  Log 12 oz" Click="Add12_Click" Margin="0,0,10,0" />
+                <Button Content="+ 8 oz" Click="Add8_Click" Margin="0,0,8,0" />
+                <Button Content="+ 16 oz" Click="Add16_Click" Margin="0,0,8,0" />
+                <Button Content="Custom" Click="Custom_Click" />
+              </StackPanel>
+            </StackPanel>
+            <Grid Grid.Column="1" Width="270" Height="270" HorizontalAlignment="Center">
+              <Ellipse Stroke="#263E6098" StrokeThickness="18" />
+              <Ellipse Stroke="{StaticResource CyanBrush}" StrokeThickness="18" Opacity="0.9" />
+              <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                <TextBlock Text="{Binding ProgressLabel}" FontSize="26" FontWeight="Bold" HorizontalAlignment="Center" />
+                <TextBlock Text="{Binding PercentLabel}" Foreground="{StaticResource MutedBrush}" FontSize="12" HorizontalAlignment="Center" Margin="0,5,0,0" />
+                <ProgressBar Value="{Binding ProgressPercent, Mode=OneWay}" Maximum="100" Width="150" Height="7" Margin="0,15,0,0" Foreground="{StaticResource CyanBrush}" Background="#223E6098" />
+              </StackPanel>
+            </Grid>
+          </Grid>
+        </Border>
+
+        <Grid Grid.Row="2" Margin="0,0,0,18">
+          <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="16" /><ColumnDefinition /></Grid.ColumnDefinitions>
+          <Border Grid.Column="0" Style="{StaticResource Card}">
+            <StackPanel>
+              <TextBlock Text="TODAY'S PACE" Foreground="{StaticResource CyanBrush}" FontSize="10" />
+              <TextBlock Text="{Binding PaceTitle}" FontSize="24" FontWeight="SemiBold" Margin="0,8,0,5" />
+              <TextBlock Text="{Binding RemainingLabel}" Foreground="{StaticResource MutedBrush}" />
+              <ProgressBar Value="{Binding ProgressPercent, Mode=OneWay}" Maximum="100" Height="8" Margin="0,22,0,0" Foreground="#FF5BDBB8" Background="#223E6098" />
+            </StackPanel>
+          </Border>
+          <Border Grid.Column="2" Style="{StaticResource Card}">
+            <Grid>
+              <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition /></Grid.RowDefinitions>
+              <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                <StackPanel>
+                  <TextBlock Text="RECENT SIPS" Foreground="{StaticResource CyanBrush}" FontSize="10" />
+                  <TextBlock Text="Today’s drinks" FontSize="19" FontWeight="SemiBold" Margin="0,7,0,0" />
+                </StackPanel>
+                <Button Grid.Column="1" Content="Undo" Click="Undo_Click" Padding="11,6" VerticalAlignment="Top" />
+              </Grid>
+              <ListBox Grid.Row="1" ItemsSource="{Binding Drinks}" Background="Transparent" BorderThickness="0" Margin="0,12,0,0" MaxHeight="180">
+                <ListBox.ItemTemplate>
+                  <DataTemplate>
+                    <Grid Margin="0,6">
+                      <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                      <TextBlock Text="{Binding AmountLabel}" FontWeight="SemiBold" />
+                      <TextBlock Grid.Column="1" Text="{Binding TimeLabel}" Foreground="{StaticResource MutedBrush}" />
+                    </Grid>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </Grid>
+          </Border>
+        </Grid>
+
+        <Border x:Name="SettingsCard" Grid.Row="3" Style="{StaticResource Card}">
+          <StackPanel>
+            <Grid Margin="0,0,0,18">
+              <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+              <StackPanel>
+                <TextBlock Text="SETTINGS" Foreground="{StaticResource CyanBrush}" FontSize="10" />
+                <TextBlock Text="Hydration plan" FontSize="24" FontWeight="SemiBold" Margin="0,7,0,0" />
+              </StackPanel>
+              <Button Grid.Column="1" x:Name="UpdateButton" Content="Check GitHub for updates" Click="Update_Click" VerticalAlignment="Center" />
+            </Grid>
+            <Grid>
+              <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="22" /><ColumnDefinition /></Grid.ColumnDefinitions>
+              <StackPanel Grid.Column="0">
+                <TextBlock Text="Daily goal (oz)" Foreground="{StaticResource MutedBrush}" />
+                <TextBox x:Name="GoalBox" Text="{Binding Settings.DailyGoalOz}" Margin="0,6,0,14" Padding="10" Background="#FF07152F" Foreground="White" BorderBrush="{StaticResource LineBrush}" />
+                <TextBlock Text="Reminder interval" Foreground="{StaticResource MutedBrush}" />
+                <ComboBox x:Name="IntervalBox" Margin="0,6,0,14" />
+                <CheckBox x:Name="RemindersBox" Content="Enable Windows reminders" IsChecked="{Binding Settings.RemindersEnabled}" Margin="0,4,0,12" />
+                <CheckBox x:Name="SoundsBox" Content="Interface sounds" IsChecked="{Binding Settings.SoundsEnabled}" />
+              </StackPanel>
+              <StackPanel Grid.Column="2">
+                <TextBlock Text="Workday schedule" Foreground="{StaticResource MutedBrush}" />
+                <StackPanel Orientation="Horizontal" Margin="0,6,0,14">
+                  <TextBox x:Name="StartBox" Width="100" Padding="10" Background="#FF07152F" Foreground="White" BorderBrush="{StaticResource LineBrush}" />
+                  <TextBlock Text="to" Margin="10,0" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" />
+                  <TextBox x:Name="EndBox" Width="100" Padding="10" Background="#FF07152F" Foreground="White" BorderBrush="{StaticResource LineBrush}" />
+                </StackPanel>
+                <TextBlock Text="Reminder days" Foreground="{StaticResource MutedBrush}" />
+                <UniformGrid Columns="7" Margin="0,8,0,18">
+                  <CheckBox x:Name="SunBox" Content="S" HorizontalAlignment="Center" />
+                  <CheckBox x:Name="MonBox" Content="M" HorizontalAlignment="Center" />
+                  <CheckBox x:Name="TueBox" Content="T" HorizontalAlignment="Center" />
+                  <CheckBox x:Name="WedBox" Content="W" HorizontalAlignment="Center" />
+                  <CheckBox x:Name="ThuBox" Content="T" HorizontalAlignment="Center" />
+                  <CheckBox x:Name="FriBox" Content="F" HorizontalAlignment="Center" />
+                  <CheckBox x:Name="SatBox" Content="S" HorizontalAlignment="Center" />
+                </UniformGrid>
+                <Button Style="{StaticResource PrimaryButton}" Content="Save settings" Click="SaveSettings_Click" />
+              </StackPanel>
+            </Grid>
+            <TextBlock x:Name="UpdateStatus" Text="Installed builds check GitHub Releases for updates." Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,18,0,0" />
+          </StackPanel>
+        </Border>
+      </Grid>
+    </ScrollViewer>
+  </Grid>
+</Window>
