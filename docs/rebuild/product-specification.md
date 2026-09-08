@@ -19,17 +19,18 @@ Waterline is private by default. It requires no account and does not upload hydr
 
 ## Information architecture
 
-The product has five primary destinations:
+The product has six primary destinations:
 
 | Destination | Purpose | Required content |
 | --- | --- | --- |
 | Today | Log water and understand today's progress | total, goal, remaining, progress, primary and quick logging, reminder status, recent entries |
-| History | Review recent hydration patterns | seven-day summary, goal markers, daily totals, selected-day details, empty state |
+| Insights | Review recent hydration patterns | seven-day summary, goal markers, daily totals, selected-day details, streaks, empty state |
+| Goals | Configure and understand the hydration target | daily target, goal progress explanation, future goal-related options |
 | Schedule | Control when reminders may run | enabled state, days, start/end time, interval, next eligible reminder explanation |
 | Widget | Open or manage the desktop companion | launch/focus widget, always-on-top explanation, expanded/compact state |
 | Settings | Configure application behavior | goal, sounds, update status, data location/recovery actions, version and privacy information |
 
-On smaller windows, navigation may change presentation but must preserve destination order, names, keyboard access, and state.
+The destination order is Today, Insights, Goals, Schedule, Widget, Settings. On smaller windows, Widget and Settings may move into a labeled overflow menu, but navigation must preserve destination names, keyboard access, and state.
 
 ## Surfaces
 
@@ -63,7 +64,7 @@ The dialog contains a numeric amount field, unit label, Add action, and Cancel a
 
 The dialog traps keyboard focus while open, announces its title and validation status, and remains fully visible at supported scaling levels.
 
-### History
+### Insights and history
 
 The initial rebuilt release presents seven local calendar days ending today. Each day shows its total relative to the goal that applies to the view. Zero intake renders as zero rather than a decorative positive value. Goal completion is communicated through shape or icon as well as color.
 
@@ -106,7 +107,6 @@ Cancel discards changes. Navigating away with modified fields prompts through a 
 
 Settings includes:
 
-- daily goal;
 - Waterline sounds on/off;
 - application version and update state;
 - manual update check and approved install action;

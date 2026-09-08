@@ -54,3 +54,13 @@ The first implementation phase will use these defaults unless the owner changes 
 ## Approval gate
 
 Phase 1 implementation may begin only after the owner approves this charter and the three linked specifications, including any requested changes.
+
+## Phase 1 design gate
+
+The selected visual direction and implementation rules are documented in:
+
+- [Direction D2: Living Water](design/direction-d2-living-water.md)
+- [Design system](design/design-system.md)
+- [Responsive and state specification](design/responsive-and-states.md)
+
+Earlier directions remain archived in the design folder as decision history. They are not implementation references.
