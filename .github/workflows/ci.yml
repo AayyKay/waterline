@@ -13,7 +13,7 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
-      - name: Build native Windows app
-        run: dotnet build Waterline.csproj --configuration Release
-      - name: Run reminder tests
+      - name: Build Waterline solution
+        run: dotnet build Waterline.sln --configuration Release
+      - name: Run foundation tests
         run: dotnet run --project Waterline.Tests/Waterline.Tests.csproj --configuration Release

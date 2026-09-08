@@ -15,13 +15,14 @@ public partial class MainWindow : Window
     private int _selectedInterval;
     private bool _allowClose;
 
-    public MainWindow(MainViewModel viewModel)
+    public MainWindow(MainViewModel viewModel, bool enableUpdateChecks = true)
     {
         InitializeComponent();
         _viewModel = viewModel;
         DataContext = viewModel;
         LoadSettingsControls();
-        Loaded += async (_, _) => await CheckForUpdatesAsync(false);
+        if (enableUpdateChecks)
+            Loaded += async (_, _) => await CheckForUpdatesAsync(false);
     }
 
     private void LoadSettingsControls()

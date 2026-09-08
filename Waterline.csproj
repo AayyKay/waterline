@@ -20,6 +20,11 @@
     <Resource Include="public\icons\waterline-app.png" Link="Assets\waterline-app.png" />
     <Resource Include="public\icons\waterline-app.ico" Link="Assets\waterline-app.ico" />
     <Compile Remove="Waterline.Tests\**\*.cs" />
+    <Compile Remove="src\**\*.cs" />
     <None Remove="Waterline.Tests\**\*" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="src\Waterline.Core\Waterline.Core.csproj" />
+    <ProjectReference Include="src\Waterline.Infrastructure\Waterline.Infrastructure.csproj" />
   </ItemGroup>
 </Project>

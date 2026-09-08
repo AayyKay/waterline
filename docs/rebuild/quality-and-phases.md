@@ -1,6 +1,6 @@
 # Quality plan and rebuild phases
 
-Status: Phase 0 approved
+Status: Phases 0, 1, and 2 approved
 
 ## Definition of done
 

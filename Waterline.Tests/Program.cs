@@ -1,46 +1,395 @@
-using Waterline;
+using System.Text.Json;
+using Waterline.Core;
+using Waterline.Infrastructure;
 
-var settings = new WaterlineSettings
+var tests = new List<(string Name, Action Run)>();
+var failures = new List<string>();
+var zone = TimeZoneInfo.CreateCustomTimeZone("Waterline-Test", TimeSpan.FromHours(-5), "Waterline Test", "Waterline Test");
+
+Test("accepts the supported amount boundaries", () =>
+{
+    Equal(true, StateValidator.IsValidAmount(.1));
+    Equal(true, StateValidator.IsValidAmount(64));
+});
+
+Test("rejects non-finite and rounded-zero amounts", () =>
+{
+    Equal(false, StateValidator.IsValidAmount(double.NaN));
+    Equal(false, StateValidator.IsValidAmount(double.PositiveInfinity));
+    Equal(false, StateValidator.IsValidAmount(.04));
+    Equal(false, StateValidator.IsValidAmount(64.1));
+});
+
+Test("groups hydration by the supplied local timezone", () =>
+{
+    var entries = new[]
+    {
+        Drink(12, new DateTimeOffset(2026, 9, 9, 3, 30, 0, TimeSpan.Zero)),
+        Drink(8, new DateTimeOffset(2026, 9, 9, 6, 30, 0, TimeSpan.Zero))
+    };
+    var progress = HydrationCalculator.GetProgress(entries, new DateOnly(2026, 9, 8), 80, zone);
+    Near(12, progress.TotalOz);
+    Near(15, progress.Percent);
+});
+
+Test("keeps zero-intake history at zero", () =>
+{
+    var days = HydrationCalculator.GetRecentDays([], new DateOnly(2026, 9, 8), 7, 80, zone);
+    Equal(7, days.Count);
+    Equal(true, days.All(day => day.TotalOz == 0 && !day.GoalReached));
+});
+
+Test("calculates behind pace and a bounded next amount", () =>
+{
+    var pace = PaceCalculator.Calculate(Local(2026, 9, 8, 13, 0), StandardSettings(), 12, zone);
+    Equal(PaceStatus.Behind, pace.Status);
+    Equal(true, pace.SuggestedNextOz is >= 8 and <= 16);
+});
+
+Test("reports before, after, excluded and complete pace states", () =>
+{
+    var settings = StandardSettings();
+    Equal(PaceStatus.BeforeSchedule, PaceCalculator.Calculate(Local(2026, 9, 8, 8, 30), settings, 0, zone).Status);
+    Equal(PaceStatus.AfterSchedule, PaceCalculator.Calculate(Local(2026, 9, 8, 18, 0), settings, 24, zone).Status);
+    Equal(PaceStatus.NoPlan, PaceCalculator.Calculate(Local(2026, 9, 6, 12, 0), settings, 24, zone).Status);
+    Equal(PaceStatus.Complete, PaceCalculator.Calculate(Local(2026, 9, 8, 12, 0), settings, 80, zone).Status);
+});
+
+Test("schedules from workday start", () =>
+{
+    var plan = ReminderScheduler.GetPlan(Local(2026, 9, 8, 8, 30), StandardSettings(), 0, null, null, zone);
+    Equal(10, TimeZoneInfo.ConvertTime(plan.DueAt!.Value, zone).Hour);
+    Equal(false, plan.IsActive);
+});
+
+Test("logging a drink resets the reminder interval", () =>
+{
+    var plan = ReminderScheduler.GetPlan(
+        Local(2026, 9, 8, 11, 20), StandardSettings(), 12, Local(2026, 9, 8, 11, 15), null, zone);
+    var localDue = TimeZoneInfo.ConvertTime(plan.DueAt!.Value, zone);
+    Equal(12, localDue.Hour);
+    Equal(15, localDue.Minute);
+});
+
+Test("a sent reminder advances the next reminder", () =>
+{
+    var plan = ReminderScheduler.GetPlan(
+        Local(2026, 9, 8, 12, 1), StandardSettings(), 12, null, Local(2026, 9, 8, 12, 0), zone);
+    Equal(13, TimeZoneInfo.ConvertTime(plan.DueAt!.Value, zone).Hour);
+});
+
+Test("reminders stop at goal and invalid schedules", () =>
+{
+    var settings = StandardSettings();
+    Equal<DateTimeOffset?>(null, ReminderScheduler.GetPlan(Local(2026, 9, 8, 12, 0), settings, 80, null, null, zone).DueAt);
+    settings.WorkdayEnd = settings.WorkdayStart;
+    Equal<DateTimeOffset?>(null, ReminderScheduler.GetPlan(Local(2026, 9, 8, 12, 0), settings, 0, null, null, zone).DueAt);
+});
+
+Test("after-hours reminders move to the next selected day", () =>
+{
+    var plan = ReminderScheduler.GetPlan(Local(2026, 9, 11, 18, 0), StandardSettings(), 12, null, null, zone);
+    var localDue = TimeZoneInfo.ConvertTime(plan.DueAt!.Value, zone);
+    Equal(DayOfWeek.Monday, localDue.DayOfWeek);
+    Equal(10, localDue.Hour);
+});
+
+Test("normalizes a reminder start that falls in the daylight-saving gap", () =>
+{
+    var daylightZone = DaylightZone();
+    var settings = StandardSettings();
+    settings.ReminderDays = [DayOfWeek.Sunday];
+    settings.WorkdayStart = new TimeSpan(2, 0, 0);
+    settings.WorkdayEnd = new TimeSpan(5, 0, 0);
+    var beforeGap = new DateTimeOffset(2026, 3, 8, 0, 30, 0, TimeSpan.FromHours(-6));
+    var plan = ReminderScheduler.GetPlan(beforeGap, settings, 0, null, null, daylightZone);
+    var localDue = TimeZoneInfo.ConvertTime(plan.DueAt!.Value, daylightZone);
+    Equal(4, localDue.Hour);
+    Equal(TimeSpan.FromHours(-5), localDue.Offset);
+});
+
+Test("validates duplicate identifiers and invalid settings", () =>
+{
+    var state = new WaterlineState
+    {
+        Settings = new WaterlineSettings { DailyGoalOz = double.NaN },
+        Drinks =
+        [
+            new DrinkEntry { Id = "same", AmountOz = 8 },
+            new DrinkEntry { Id = "same", AmountOz = 12 }
+        ]
+    };
+    var errors = StateValidator.Validate(state);
+    Equal(true, errors.Count >= 2);
+});
+
+Test("loads a new profile without creating directories", () =>
+{
+    using var temp = new TemporaryDirectory();
+    var statePath = Path.Combine(temp.Path, "profile", "state.json");
+    var result = new AppStateStore(statePath).Load();
+    Equal(StateLoadStatus.New, result.Status);
+    Equal(true, result.CanSave);
+    Equal(false, Directory.Exists(Path.GetDirectoryName(statePath)));
+});
+
+Test("migrates the v2 unversioned state without modifying its source", () =>
+{
+    using var temp = new TemporaryDirectory();
+    var statePath = Path.Combine(temp.Path, "state.json");
+    var original = LegacyJson();
+    File.WriteAllText(statePath, original);
+    var store = new AppStateStore(statePath);
+    var result = store.Load();
+    Equal(StateLoadStatus.Migrated, result.Status);
+    Equal(true, result.CanSave);
+    Equal(2, result.State.Drinks.Count);
+    Equal(new DateTimeOffset(2026, 9, 8, 9, 15, 0, TimeSpan.FromHours(-5)), result.State.Drinks[0].RecordedAt);
+    Equal(original, File.ReadAllText(statePath));
+});
+
+Test("saving migrated state writes schema one and preserves values", () =>
+{
+    using var temp = new TemporaryDirectory();
+    var statePath = Path.Combine(temp.Path, "state.json");
+    File.WriteAllText(statePath, LegacyJson());
+    var store = new AppStateStore(statePath);
+    var migrated = store.Load();
+    Equal(true, store.Save(migrated.State).Success);
+    using var json = JsonDocument.Parse(File.ReadAllText(statePath));
+    Equal(StateSchema.CurrentVersion, json.RootElement.GetProperty("schemaVersion").GetInt32());
+    var reloaded = new AppStateStore(statePath).Load();
+    Equal(StateLoadStatus.Loaded, reloaded.Status);
+    Near(80, reloaded.State.Settings.DailyGoalOz);
+    Equal(2, reloaded.State.Drinks.Count);
+});
+
+Test("refuses to coerce an unsupported future schema during save", () =>
+{
+    using var temp = new TemporaryDirectory();
+    var statePath = Path.Combine(temp.Path, "state.json");
+    var state = ValidState(8);
+    state.SchemaVersion = StateSchema.CurrentVersion + 1;
+    var result = new AppStateStore(statePath).Save(state);
+    Equal(false, result.Success);
+    Equal(false, File.Exists(statePath));
+    Equal(StateSchema.CurrentVersion + 1, state.SchemaVersion);
+});
+
+Test("atomic replacement retains the previous valid state as backup", () =>
+{
+    using var temp = new TemporaryDirectory();
+    var statePath = Path.Combine(temp.Path, "state.json");
+    var store = new AppStateStore(statePath);
+    Equal(true, store.Save(ValidState(8)).Success);
+    Equal(true, store.Save(ValidState(20)).Success);
+    var backup = new AppStateStore(Path.Combine(temp.Path, "state.backup.json")).Load();
+    Near(8, backup.State.Drinks.Single().AmountOz);
+    Equal(0, Directory.GetFiles(temp.Path, "*.tmp").Length);
+});
+
+Test("serializes concurrent save requests without leaving temporary files", () =>
+{
+    using var temp = new TemporaryDirectory();
+    var statePath = Path.Combine(temp.Path, "state.json");
+    var store = new AppStateStore(statePath);
+    var results = new bool[20];
+    Parallel.For(0, results.Length, index =>
+    {
+        results[index] = store.Save(ValidState(index + 1)).Success;
+    });
+    Equal(true, results.All(result => result));
+    Equal(StateLoadStatus.Loaded, new AppStateStore(statePath).Load().Status);
+    Equal(0, Directory.GetFiles(temp.Path, "*.tmp").Length);
+});
+
+Test("recovers a valid backup and blocks writes until acknowledged", () =>
+{
+    using var temp = new TemporaryDirectory();
+    var statePath = Path.Combine(temp.Path, "state.json");
+    var store = new AppStateStore(statePath);
+    Equal(true, store.Save(ValidState(8)).Success);
+    Equal(true, store.Save(ValidState(20)).Success);
+    File.WriteAllText(statePath, "{broken");
+
+    var recoveryStore = new AppStateStore(statePath);
+    var recovered = recoveryStore.Load();
+    Equal(StateLoadStatus.RecoveredFromBackup, recovered.Status);
+    Equal(false, recovered.CanSave);
+    Equal(true, recoveryStore.Save(recovered.State).Blocked);
+    Equal(true, recoveryStore.AcknowledgeRecoveredState());
+    Equal(1, Directory.GetFiles(temp.Path, "state.corrupt.*.json").Length);
+    Equal(true, recoveryStore.Save(recovered.State).Success);
+});
+
+Test("unrecoverable state never silently overwrites existing files", () =>
+{
+    using var temp = new TemporaryDirectory();
+    var statePath = Path.Combine(temp.Path, "state.json");
+    var backupPath = Path.Combine(temp.Path, "state.backup.json");
+    File.WriteAllText(statePath, "not-json");
+    File.WriteAllText(backupPath, "also-not-json");
+    var store = new AppStateStore(statePath);
+    var result = store.Load();
+    Equal(StateLoadStatus.Unrecoverable, result.Status);
+    Equal(false, result.CanSave);
+    Equal(true, store.Save(result.State).Blocked);
+    Equal(false, store.AcknowledgeRecoveredState());
+    Equal(true, store.Save(result.State).Blocked);
+    Equal("not-json", File.ReadAllText(statePath));
+    Equal("also-not-json", File.ReadAllText(backupPath));
+});
+
+Test("valid JSON with an unknown shape is not treated as legacy state", () =>
+{
+    using var temp = new TemporaryDirectory();
+    var statePath = Path.Combine(temp.Path, "state.json");
+    File.WriteAllText(statePath, "{}");
+    var store = new AppStateStore(statePath);
+    var result = store.Load();
+    Equal(StateLoadStatus.Unrecoverable, result.Status);
+    Equal(false, store.AcknowledgeRecoveredState());
+    Equal("{}", File.ReadAllText(statePath));
+});
+
+Test("schema one requires all persisted sections", () =>
+{
+    using var temp = new TemporaryDirectory();
+    var statePath = Path.Combine(temp.Path, "state.json");
+    File.WriteAllText(statePath, "{\"schemaVersion\":1,\"settings\":{},\"drinks\":[]}");
+    var result = new AppStateStore(statePath).Load();
+    Equal(StateLoadStatus.Unrecoverable, result.Status);
+    Equal(false, result.CanSave);
+});
+
+Test("legacy Electron discovery is read-only", () =>
+{
+    using var temp = new TemporaryDirectory();
+    var levelDb = Path.Combine(temp.Path, "Waterline", "Local Storage", "leveldb");
+    Directory.CreateDirectory(levelDb);
+    var before = Directory.GetDirectories(temp.Path, "*", SearchOption.AllDirectories).Length;
+    var locations = new LegacyDataDiscovery(temp.Path).FindElectronLocations();
+    Equal(true, locations.Any(location => location.Exists && location.LevelDbPath == levelDb));
+    Equal(before, Directory.GetDirectories(temp.Path, "*", SearchOption.AllDirectories).Length);
+});
+
+foreach (var test in tests)
+{
+    try
+    {
+        test.Run();
+        Console.WriteLine($"PASS {test.Name}");
+    }
+    catch (Exception exception)
+    {
+        failures.Add($"{test.Name}: {exception.Message}");
+        Console.Error.WriteLine($"FAIL {test.Name}: {exception.Message}");
+    }
+}
+
+if (failures.Count > 0)
+{
+    Console.Error.WriteLine($"{failures.Count} of {tests.Count} tests failed.");
+    return 1;
+}
+
+Console.WriteLine($"All {tests.Count} Phase 2 foundation tests passed.");
+return 0;
+
+void Test(string name, Action run) => tests.Add((name, run));
+
+static void Equal<T>(T expected, T actual)
+{
+    if (!EqualityComparer<T>.Default.Equals(expected, actual))
+        throw new InvalidOperationException($"Expected {expected}, received {actual}.");
+}
+
+static void Near(double expected, double actual, double tolerance = .001)
+{
+    if (Math.Abs(expected - actual) > tolerance)
+        throw new InvalidOperationException($"Expected {expected}, received {actual}.");
+}
+
+static DrinkEntry Drink(double amount, DateTimeOffset at) =>
+    new() { Id = Guid.NewGuid().ToString("N"), AmountOz = amount, RecordedAt = at };
+
+static WaterlineSettings StandardSettings() => new()
 {
     DailyGoalOz = 80,
     ReminderIntervalMinutes = 60,
     WorkdayStart = new TimeSpan(9, 0, 0),
     WorkdayEnd = new TimeSpan(17, 0, 0),
-    RemindersEnabled = true
+    RemindersEnabled = true,
+    ReminderDays = [DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday]
 };
 
-var failures = new List<string>();
-Check("schedules from workday start", () =>
+static TimeZoneInfo DaylightZone()
 {
-    var plan = ReminderScheduler.GetPlan(Local(2026, 9, 2, 8, 30), settings, 0, null, null);
-    return plan.DueAt?.Hour == 10 && !plan.IsActive;
-});
-Check("logging a drink resets the interval", () =>
-{
-    var plan = ReminderScheduler.GetPlan(Local(2026, 9, 2, 11, 20), settings, 12, Local(2026, 9, 2, 11, 15), null);
-    return plan.DueAt?.Hour == 12 && plan.DueAt?.Minute == 15;
-});
-Check("stops when the goal is reached", () => ReminderScheduler.GetPlan(Local(2026, 9, 2, 12, 0), settings, 80, null, null).DueAt is null);
-Check("moves after-hours reminders to Monday", () =>
-{
-    var plan = ReminderScheduler.GetPlan(Local(2026, 9, 4, 18, 0), settings, 12, null, null);
-    return plan.DueAt?.DayOfWeek == DayOfWeek.Monday && plan.DueAt?.Hour == 10;
-});
-Check("a sent notification advances the reminder", () => ReminderScheduler.GetPlan(Local(2026, 9, 2, 12, 1), settings, 12, null, Local(2026, 9, 2, 12, 0)).DueAt?.Hour == 13);
-
-if (failures.Count > 0)
-{
-    Console.Error.WriteLine($"{failures.Count} reminder test(s) failed: {string.Join(", ", failures)}");
-    return 1;
-}
-Console.WriteLine("All 5 native reminder tests passed.");
-return 0;
-
-void Check(string name, Func<bool> test)
-{
-    try { if (!test()) failures.Add(name); }
-    catch (Exception exception) { failures.Add($"{name} ({exception.Message})"); }
+    var start = TimeZoneInfo.TransitionTime.CreateFloatingDateRule(
+        new DateTime(1, 1, 1, 2, 0, 0), 3, 2, DayOfWeek.Sunday);
+    var end = TimeZoneInfo.TransitionTime.CreateFloatingDateRule(
+        new DateTime(1, 1, 1, 2, 0, 0), 11, 1, DayOfWeek.Sunday);
+    var rule = TimeZoneInfo.AdjustmentRule.CreateAdjustmentRule(
+        new DateTime(2020, 1, 1), new DateTime(2030, 12, 31), TimeSpan.FromHours(1), start, end);
+    return TimeZoneInfo.CreateCustomTimeZone(
+        "Waterline-DST-Test",
+        TimeSpan.FromHours(-6),
+        "Waterline DST Test",
+        "Waterline Standard",
+        "Waterline Daylight",
+        [rule]);
 }
 
-static DateTimeOffset Local(int year, int month, int day, int hour, int minute) =>
-    new(year, month, day, hour, minute, 0, TimeZoneInfo.Local.GetUtcOffset(new DateTime(year, month, day, hour, minute, 0)));
+DateTimeOffset Local(int year, int month, int day, int hour, int minute)
+{
+    var local = new DateTime(year, month, day, hour, minute, 0, DateTimeKind.Unspecified);
+    return new DateTimeOffset(local, zone.GetUtcOffset(local));
+}
+
+static WaterlineState ValidState(double amount) => new()
+{
+    Drinks =
+    [
+        new DrinkEntry
+        {
+            Id = $"drink-{amount:0.#}",
+            AmountOz = amount,
+            RecordedAt = new DateTimeOffset(2026, 9, 8, 9, 15, 0, TimeSpan.FromHours(-5))
+        }
+    ]
+};
+
+static string LegacyJson() => """
+{
+  "Settings": {
+    "DailyGoalOz": 80,
+    "ReminderIntervalMinutes": 60,
+    "WorkdayStart": "09:00:00",
+    "WorkdayEnd": "17:00:00",
+    "RemindersEnabled": true,
+    "SoundsEnabled": true,
+    "ReminderDays": [1, 2, 3, 4, 5]
+  },
+  "Drinks": [
+    { "Id": 1001, "AmountOz": 12, "At": "2026-09-08T09:15:00-05:00" },
+    { "Id": 1002, "AmountOz": 8, "At": "2026-09-08T10:30:00-05:00" }
+  ],
+  "LastNotificationAt": "2026-09-08T08:00:00-05:00"
+}
+""";
+
+sealed class TemporaryDirectory : IDisposable
+{
+    public TemporaryDirectory()
+    {
+        Path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"Waterline.Tests.{Guid.NewGuid():N}");
+        Directory.CreateDirectory(Path);
+    }
+
+    public string Path { get; }
+
+    public void Dispose()
+    {
+        if (Directory.Exists(Path)) Directory.Delete(Path, true);
+    }
+}

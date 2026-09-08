@@ -2,25 +2,40 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Threading;
+using Waterline.Core;
+using Waterline.Infrastructure;
 
 namespace Waterline;
 
 public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 {
     private readonly AppStateStore _store;
+    private readonly IClock _clockProvider;
+    private readonly TimeZoneInfo _timeZone;
     private readonly DispatcherTimer _clock = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly DispatcherTimer _reminderTimer = new() { Interval = TimeSpan.FromSeconds(20) };
     private readonly WaterlineState _state;
-    private DateTimeOffset _now = DateTimeOffset.Now;
+    private DateTimeOffset _now;
+    private string _persistenceMessage = string.Empty;
 
-    public MainViewModel(AppStateStore store)
+    public MainViewModel(AppStateStore store, IClock? clock = null, TimeZoneInfo? timeZone = null)
     {
         _store = store;
-        _state = store.Load();
-        _state.Drinks ??= [];
-        _state.Settings ??= new WaterlineSettings();
-        Drinks = new ObservableCollection<DrinkEntry>(TodayEntries().OrderByDescending(d => d.At));
-        _clock.Tick += (_, _) => { _now = DateTimeOffset.Now; RefreshAll(); };
+        _clockProvider = clock ?? new SystemClock();
+        _timeZone = timeZone ?? TimeZoneInfo.Local;
+        _now = _clockProvider.Now;
+        var load = store.Load();
+        _state = load.State;
+        LoadStatus = load.Status;
+        _persistenceMessage = string.Join(" ", load.Messages);
+        Drinks = new ObservableCollection<DrinkEntry>(TodayEntries().OrderByDescending(d => d.RecordedAt));
+        _clock.Tick += (_, _) =>
+        {
+            var previousDay = LocalDay(_now);
+            _now = _clockProvider.Now;
+            if (LocalDay(_now) != previousDay) RefreshDrinkCollection();
+            RefreshAll();
+        };
         _reminderTimer.Tick += (_, _) => CheckReminder();
         _clock.Start();
         _reminderTimer.Start();
@@ -29,22 +44,30 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     public event PropertyChangedEventHandler? PropertyChanged;
     public event EventHandler<AppNotification>? NotificationRequested;
+    public event EventHandler<string>? PersistenceIssue;
     public ObservableCollection<DrinkEntry> Drinks { get; }
     public WaterlineSettings Settings => _state.Settings;
-    public double TotalOz => TodayEntries().Sum(d => d.AmountOz);
-    public double RemainingOz => Math.Max(0, Settings.DailyGoalOz - TotalOz);
-    public double ProgressPercent => Settings.DailyGoalOz <= 0 ? 0 : Math.Min(100, TotalOz / Settings.DailyGoalOz * 100);
+    public StateLoadStatus LoadStatus { get; }
+    public string PersistenceMessage => _persistenceMessage;
+    public bool HasPersistenceIssue => !string.IsNullOrWhiteSpace(_persistenceMessage);
+    public double TotalOz => CurrentProgress.TotalOz;
+    public double RemainingOz => CurrentProgress.RemainingOz;
+    public double ProgressPercent => Math.Min(100, CurrentProgress.Percent);
     public string ProgressLabel => $"{TotalOz:0.#} / {Settings.DailyGoalOz:0.#} oz";
     public string PercentLabel => $"{ProgressPercent:0}% of your goal";
     public string RemainingLabel => RemainingOz > 0 ? $"{RemainingOz:0.#} oz to go" : "Goal complete!";
-    public string DateLabel => _now.ToString("dddd, MMMM d").ToUpperInvariant();
+    public string DateLabel => TimeZoneInfo.ConvertTime(_now, _timeZone)
+        .ToString("dddd, MMMM d")
+        .ToUpperInvariant();
     public string ReminderLabel
     {
         get
         {
             if (!Settings.RemindersEnabled) return "Reminders are off";
             var plan = CurrentReminderPlan();
-            return plan.DueAt is { } due ? $"Next reminder {due.LocalDateTime:h:mm tt}" : "No more reminders today";
+            return plan.DueAt is { } due
+                ? $"Next reminder {TimeZoneInfo.ConvertTime(due, _timeZone):h:mm tt}"
+                : "No more reminders today";
         }
     }
     public string PaceTitle
@@ -52,53 +75,64 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         get
         {
             if (RemainingOz <= 0) return "Goal complete";
-            var local = _now.LocalDateTime;
-            if (!Settings.ReminderDays.Contains(local.DayOfWeek)) return "No plan today";
-            var start = local.Date + Settings.WorkdayStart;
-            var end = local.Date + Settings.WorkdayEnd;
-            if (local < start) return $"Starts at {start:h:mm tt}";
-            if (local > end) return $"{RemainingOz:0.#} oz left";
-            var target = Settings.DailyGoalOz * Math.Clamp((local - start).TotalMinutes / Math.Max(1, (end - start).TotalMinutes), 0, 1);
-            var difference = TotalOz - target;
-            var tolerance = Math.Max(4, Settings.DailyGoalOz * .05);
-            if (difference < -tolerance) return $"{Math.Abs(difference):0} oz behind";
-            if (difference > tolerance) return $"{difference:0} oz ahead";
-            return "Right on schedule";
+            var pace = PaceCalculator.Calculate(_now, Settings, TotalOz, _timeZone);
+            return pace.Status switch
+            {
+                PaceStatus.Complete => "Goal complete",
+                PaceStatus.NoPlan => "No plan today",
+                PaceStatus.BeforeSchedule => $"Starts at {Settings.WorkdayStart.ToString(@"h\:mm")}",
+                PaceStatus.AfterSchedule => $"{RemainingOz:0.#} oz left",
+                PaceStatus.Behind => $"{Math.Abs(pace.DifferenceOz):0} oz behind",
+                PaceStatus.Ahead => $"{pace.DifferenceOz:0} oz ahead",
+                _ => "Right on schedule"
+            };
         }
     }
-    public IReadOnlyList<DailyTotal> WeeklyTotals => Enumerable.Range(0, 7)
-        .Select(offset => DateOnly.FromDateTime(_now.LocalDateTime.Date.AddDays(offset - 6)))
+    public IReadOnlyList<DailyTotal> WeeklyTotals => HydrationCalculator
+        .GetRecentDays(_state.Drinks, LocalDay(_now), 7, Settings.DailyGoalOz, _timeZone)
         .Select(day =>
         {
-            var total = _state.Drinks.Where(d => DateOnly.FromDateTime(d.At.LocalDateTime) == day).Sum(d => d.AmountOz);
-            var label = day == DateOnly.FromDateTime(_now.LocalDateTime.Date) ? "Today" : day.ToDateTime(TimeOnly.MinValue).ToString("ddd")[..1];
-            var height = Math.Clamp(total / Math.Max(1, Settings.DailyGoalOz) * 105, 8, 105);
-            return new DailyTotal(label, total, height);
+            var label = day.Day == LocalDay(_now) ? "Today" : day.Day.ToDateTime(TimeOnly.MinValue).ToString("ddd")[..1];
+            var height = day.TotalOz <= 0 ? 0 : Math.Clamp(day.TotalOz / Math.Max(1, Settings.DailyGoalOz) * 105, 8, 105);
+            return new DailyTotal(label, day.TotalOz, height);
         })
         .ToList();
 
     public void AddDrink(double amountOz)
     {
-        if (amountOz is <= 0 or > 64) return;
-        var entry = new DrinkEntry { AmountOz = Math.Round(amountOz, 1), At = DateTimeOffset.Now };
+        if (!StateValidator.IsValidAmount(amountOz)) return;
+        var entry = new DrinkEntry { AmountOz = Math.Round(amountOz, 1), RecordedAt = _clockProvider.Now };
+        var previousNotification = _state.Runtime.LastNotificationAt;
         _state.Drinks.Add(entry);
+        _state.Runtime.LastNotificationAt = null;
+        if (!Persist())
+        {
+            _state.Drinks.Remove(entry);
+            _state.Runtime.LastNotificationAt = previousNotification;
+            return;
+        }
         Drinks.Insert(0, entry);
-        SaveAndRefresh();
+        RefreshAll();
         if (Settings.SoundsEnabled) SoundService.PlayLog();
     }
 
     public void UndoLastDrink()
     {
-        var last = TodayEntries().MaxBy(d => d.At);
+        var last = TodayEntries().MaxBy(d => d.RecordedAt);
         if (last is null) return;
         _state.Drinks.Remove(last);
+        if (!Persist())
+        {
+            _state.Drinks.Add(last);
+            return;
+        }
         Drinks.Remove(last);
-        SaveAndRefresh();
+        RefreshAll();
     }
 
     public void SaveSettings()
     {
-        _store.Save(_state);
+        Persist();
         RefreshAll();
     }
 
@@ -108,30 +142,62 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         SaveSettings();
     }
 
+    private HydrationProgress CurrentProgress =>
+        HydrationCalculator.GetProgress(_state.Drinks, LocalDay(_now), Settings.DailyGoalOz, _timeZone);
+
+    private DateOnly LocalDay(DateTimeOffset instant) => HydrationCalculator.GetLocalDay(instant, _timeZone);
+
     private IEnumerable<DrinkEntry> TodayEntries() =>
-        _state.Drinks.Where(d => d.At.LocalDateTime.Date == _now.LocalDateTime.Date);
+        _state.Drinks.Where(d => HydrationCalculator.GetLocalDay(d.RecordedAt, _timeZone) == LocalDay(_now));
 
     private ReminderPlan CurrentReminderPlan() => ReminderScheduler.GetPlan(
-        _now, Settings, TotalOz, TodayEntries().MaxBy(d => d.At)?.At, _state.LastNotificationAt);
+        _now, Settings, TotalOz, TodayEntries().MaxBy(d => d.RecordedAt)?.RecordedAt,
+        _state.Runtime.LastNotificationAt, _timeZone);
 
     private void CheckReminder()
     {
         var plan = CurrentReminderPlan();
         if (plan.IsActive && plan.DueAt is { } due && due <= _now)
         {
-            _state.LastNotificationAt = _now;
-            _store.Save(_state);
+            var previousNotification = _state.Runtime.LastNotificationAt;
+            _state.Runtime.LastNotificationAt = _now;
+            if (!Persist())
+            {
+                _state.Runtime.LastNotificationAt = previousNotification;
+                return;
+            }
             if (Settings.SoundsEnabled) SoundService.PlayReminder();
             NotificationRequested?.Invoke(this, new AppNotification("Time for a small water break", $"{RemainingOz:0.#} oz left today. Take a sip, then log it in Waterline."));
         }
         RefreshAll();
     }
 
-    private void SaveAndRefresh()
+    private bool Persist()
     {
-        _state.LastNotificationAt = null;
-        _store.Save(_state);
-        RefreshAll();
+        var result = _store.Save(_state);
+        if (result.Success)
+        {
+            SetPersistenceMessage(string.Empty);
+            return true;
+        }
+        SetPersistenceMessage(result.Message ?? "Waterline could not save local state.");
+        PersistenceIssue?.Invoke(this, _persistenceMessage);
+        return false;
+    }
+
+    private void SetPersistenceMessage(string message)
+    {
+        if (_persistenceMessage == message) return;
+        _persistenceMessage = message;
+        OnPropertyChanged(nameof(PersistenceMessage));
+        OnPropertyChanged(nameof(HasPersistenceIssue));
+    }
+
+    private void RefreshDrinkCollection()
+    {
+        Drinks.Clear();
+        foreach (var entry in TodayEntries().OrderByDescending(entry => entry.RecordedAt))
+            Drinks.Add(entry);
     }
 
     private void RefreshAll()

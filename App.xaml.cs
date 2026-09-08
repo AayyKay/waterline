@@ -1,6 +1,8 @@
 using System.Diagnostics;
+using System.IO;
 using System.Threading;
 using System.Windows;
+using Waterline.Infrastructure;
 
 namespace Waterline;
 
@@ -28,9 +30,12 @@ public partial class App : System.Windows.Application
         _showWindowEvent = new EventWaitHandle(false, EventResetMode.AutoReset, isSnapshot ? $"Waterline.Native.Windows.SnapshotShow.{Environment.ProcessId}" : "Waterline.Native.Windows.ShowMain");
         _instanceListenerCancellation = new CancellationTokenSource();
 
-        var store = new AppStateStore();
+        var statePath = isSnapshot
+            ? Path.Combine(Path.GetTempPath(), "Waterline", "Snapshots", Environment.ProcessId.ToString(), "state.json")
+            : null;
+        var store = new AppStateStore(statePath);
         var viewModel = new MainViewModel(store);
-        _mainWindow = new MainWindow(viewModel);
+        _mainWindow = new MainWindow(viewModel, enableUpdateChecks: !isSnapshot);
         var snapshotIndex = Array.IndexOf(e.Args, "--snapshot");
         if (snapshotIndex >= 0 && snapshotIndex + 1 < e.Args.Length)
         {
