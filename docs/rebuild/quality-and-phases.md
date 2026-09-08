@@ -1,6 +1,6 @@
 # Quality plan and rebuild phases
 
-Status: Phase 0 draft for approval
+Status: Phase 0 approved
 
 ## Definition of done
 

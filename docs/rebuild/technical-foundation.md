@@ -1,6 +1,6 @@
 # Technical foundation
 
-Status: Phase 0 draft for approval
+Status: Phase 0 approved
 
 ## Architecture goals
 

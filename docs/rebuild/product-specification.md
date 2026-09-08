@@ -1,6 +1,6 @@
 # Product specification
 
-Status: Phase 0 draft for approval
+Status: Phase 0 approved
 
 ## Product promise
 
