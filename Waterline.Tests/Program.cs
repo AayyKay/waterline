@@ -39,6 +39,53 @@ Test("keeps zero-intake history at zero", () =>
     Equal(true, days.All(day => day.TotalOz == 0 && !day.GoalReached));
 });
 
+Test("orders only the selected local day newest first", () =>
+{
+    var entries = new[]
+    {
+        Drink(8, new DateTimeOffset(2026, 9, 9, 3, 30, 0, TimeSpan.Zero)),
+        Drink(12, new DateTimeOffset(2026, 9, 9, 6, 30, 0, TimeSpan.Zero)),
+        Drink(16, new DateTimeOffset(2026, 9, 9, 8, 30, 0, TimeSpan.Zero))
+    };
+    var selected = HydrationCalculator.GetEntriesForDay(entries, new DateOnly(2026, 9, 8), zone);
+    Equal(1, selected.Count);
+    Near(8, selected[0].AmountOz);
+});
+
+Test("selects the latest eligible entry for current-day undo", () =>
+{
+    var day = new DateOnly(2026, 9, 8);
+    var entries = new[]
+    {
+        Drink(8, Local(2026, 9, 8, 8, 15)),
+        Drink(12, Local(2026, 9, 8, 11, 45)),
+        Drink(16, Local(2026, 9, 7, 16, 0))
+    };
+    Near(12, HydrationCalculator.GetMostRecentEntry(entries, day, zone)!.AmountOz);
+});
+
+Test("reports goal completion and over-goal totals without clamping data", () =>
+{
+    var entries = new[] { Drink(92, Local(2026, 9, 8, 12, 0)) };
+    var progress = HydrationCalculator.GetProgress(entries, new DateOnly(2026, 9, 8), 80, zone);
+    Near(92, progress.TotalOz);
+    Near(115, progress.Percent);
+    Near(0, progress.RemainingOz);
+    Equal(true, progress.IsComplete);
+});
+
+Test("recalculates history against a changed goal without changing drink amounts", () =>
+{
+    var entry = Drink(72, Local(2026, 9, 8, 12, 0));
+    var first = HydrationCalculator.GetRecentDays([entry], new DateOnly(2026, 9, 8), 1, 80, zone).Single();
+    var changed = HydrationCalculator.GetRecentDays([entry], new DateOnly(2026, 9, 8), 1, 64, zone).Single();
+    Near(72, first.TotalOz);
+    Near(72, changed.TotalOz);
+    Equal(false, first.GoalReached);
+    Equal(true, changed.GoalReached);
+    Near(72, entry.AmountOz);
+});
+
 Test("calculates behind pace and a bounded next amount", () =>
 {
     var pace = PaceCalculator.Calculate(Local(2026, 9, 8, 13, 0), StandardSettings(), 12, zone);
@@ -293,7 +340,7 @@ if (failures.Count > 0)
     return 1;
 }
 
-Console.WriteLine($"All {tests.Count} Phase 2 foundation tests passed.");
+Console.WriteLine($"All {tests.Count} automated Waterline checks passed.");
 return 0;
 
 void Test(string name, Action run) => tests.Add((name, run));

@@ -14,8 +14,7 @@ public partial class MainWindow : Window
     private readonly MainViewModel _viewModel;
     private readonly ToggleButton[] _destinationButtons;
     private bool _allowClose;
-    private bool _focusSampleOnLoad;
-    private bool _scrollEndOnLoad;
+    private bool _focusLogOnLoad;
     private string _selectedDestination = "Today";
 
     public MainWindow(MainViewModel viewModel, bool enableUpdateChecks = true)
@@ -24,6 +23,7 @@ public partial class MainWindow : Window
         _viewModel = viewModel;
         DataContext = viewModel;
         _destinationButtons = [TodayNav, InsightsNav, GoalsNav, ScheduleNav, WidgetNav, SettingsNav];
+        _viewModel.PropertyChanged += ViewModel_PropertyChanged;
         Loaded += OnLoaded;
     }
 
@@ -37,8 +37,32 @@ public partial class MainWindow : Window
             ShellRoot.Opacity = 1;
             ShellTranslate.Y = 0;
         }
-        if (_focusSampleOnLoad) SecondarySampleButton.Focus();
-        if (_scrollEndOnLoad) MainScroll.ScrollToEnd();
+        if (_focusLogOnLoad) Log12Button.Focus();
+    }
+
+    private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(MainViewModel.ReservoirFillHeight) || !IsLoaded) return;
+        UpdateReservoirFill(SystemParameters.ClientAreaAnimation);
+    }
+
+    private void UpdateReservoirFill(bool animate)
+    {
+        var reservoirFrame = (Border)((Grid)ReservoirFill.Parent).Parent;
+        var target = Math.Max(0, reservoirFrame.Height - 4) * _viewModel.ProgressPercent / 100;
+        var previous = ReservoirFill.ActualHeight;
+        ReservoirFill.BeginAnimation(HeightProperty, null);
+        ReservoirFill.Height = target;
+        if (!animate) return;
+        var animation = new DoubleAnimation
+        {
+            From = previous,
+            To = target,
+            Duration = TimeSpan.FromMilliseconds(240),
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
+            FillBehavior = FillBehavior.Stop
+        };
+        ReservoirFill.BeginAnimation(HeightProperty, animation, HandoffBehavior.SnapshotAndReplace);
     }
 
     private void Navigation_Click(object sender, RoutedEventArgs e)
@@ -58,8 +82,14 @@ public partial class MainWindow : Window
             System.Windows.Automation.AutomationProperties.SetName(button, selected ? $"{destination}, selected" : destination);
         }
         MoreNav.IsChecked = destination is "Widget" or "Settings" && MoreNav.Visibility == Visibility.Visible;
-        PageEyebrow.Text = $"{destination.ToUpperInvariant()} · NATIVE SYSTEM";
-        PageTitle.Text = destination == "Today" ? "Native component foundation" : $"{destination} foundation";
+        TodayView.Visibility = destination == "Today" ? Visibility.Visible : Visibility.Collapsed;
+        InsightsView.Visibility = destination == "Insights" ? Visibility.Visible : Visibility.Collapsed;
+        PlaceholderView.Visibility = destination is "Today" or "Insights" ? Visibility.Collapsed : Visibility.Visible;
+        if (PlaceholderView.Visibility == Visibility.Visible)
+        {
+            PlaceholderEyebrow.Text = destination is "Goals" ? "PHASE 5" : destination is "Schedule" or "Settings" ? "PHASE 5" : "PHASE 6";
+            PlaceholderTitle.Text = destination == "Widget" ? "Widget opens separately" : $"{destination} is scheduled next";
+        }
         MainScroll.ScrollToTop();
     }
 
@@ -78,11 +108,18 @@ public partial class MainWindow : Window
 
     private void SettingsMenu_Click(object sender, RoutedEventArgs e) => SelectDestination("Settings");
 
-    private void SampleMenu_Click(object sender, RoutedEventArgs e)
+    private void Add8_Click(object sender, RoutedEventArgs e) => _viewModel.AddDrink(8);
+    private void Add12_Click(object sender, RoutedEventArgs e) => _viewModel.AddDrink(12);
+    private void Add16_Click(object sender, RoutedEventArgs e) => _viewModel.AddDrink(16);
+    private void Undo_Click(object sender, RoutedEventArgs e) => _viewModel.UndoLastDrink();
+    private void Recover_Click(object sender, RoutedEventArgs e) => _viewModel.AcknowledgeRecovery();
+
+    private void Custom_Click(object sender, RoutedEventArgs e)
     {
-        SampleMenu.PlacementTarget = MenuSampleButton;
-        SampleMenu.Placement = PlacementMode.Bottom;
-        SampleMenu.IsOpen = true;
+        var opener = sender as System.Windows.Controls.Button;
+        var dialog = new AmountDialog { Owner = this };
+        if (dialog.ShowDialog() == true) _viewModel.AddDrink(dialog.AmountOz);
+        opener?.Focus();
     }
 
     private void Window_SizeChanged(object sender, SizeChangedEventArgs e) => ApplyResponsiveLayout(e.NewSize.Width);
@@ -98,18 +135,43 @@ public partial class MainWindow : Window
 
         if (compact)
         {
-            Grid.SetRow(ActivityRail, 1);
-            Grid.SetColumn(ActivityRail, 0);
-            Grid.SetColumnSpan(ActivityRail, 3);
-            ActivityRail.Margin = new Thickness(0);
+            Grid.SetColumnSpan(TodayPrimary, 3);
+            Grid.SetRow(TodayRail, 1);
+            Grid.SetColumn(TodayRail, 0);
+            Grid.SetColumnSpan(TodayRail, 3);
+            var progressCard = (Border)TodayPrimary.Children[0];
+            progressCard.Padding = new Thickness(12);
+            var reservoirFrame = (Border)((Grid)ReservoirFill.Parent).Parent;
+            reservoirFrame.Height = 145;
+            var reservoirArea = (Grid)reservoirFrame.Parent;
+            reservoirArea.Height = 160;
+            ((StackPanel)reservoirArea.Children[1]).Visibility = Visibility.Collapsed;
+            var historyCard = (Border)((StackPanel)HistoryDayList.Parent).Parent;
+            Grid.SetColumnSpan(historyCard, 3);
+            Grid.SetRow(HistoryDetail, 1);
+            Grid.SetColumn(HistoryDetail, 0);
+            Grid.SetColumnSpan(HistoryDetail, 3);
         }
         else
         {
-            Grid.SetRow(ActivityRail, 0);
-            Grid.SetColumn(ActivityRail, 2);
-            Grid.SetColumnSpan(ActivityRail, 1);
-            ActivityRail.Margin = new Thickness(0);
+            Grid.SetColumnSpan(TodayPrimary, 1);
+            Grid.SetRow(TodayRail, 0);
+            Grid.SetColumn(TodayRail, 2);
+            Grid.SetColumnSpan(TodayRail, 1);
+            var progressCard = (Border)TodayPrimary.Children[0];
+            progressCard.Padding = new Thickness(24);
+            var reservoirFrame = (Border)((Grid)ReservoirFill.Parent).Parent;
+            reservoirFrame.Height = 270;
+            var reservoirArea = (Grid)reservoirFrame.Parent;
+            reservoirArea.Height = 292;
+            ((StackPanel)reservoirArea.Children[1]).Visibility = Visibility.Visible;
+            var historyCard = (Border)((StackPanel)HistoryDayList.Parent).Parent;
+            Grid.SetColumnSpan(historyCard, 1);
+            Grid.SetRow(HistoryDetail, 0);
+            Grid.SetColumn(HistoryDetail, 2);
+            Grid.SetColumnSpan(HistoryDetail, 1);
         }
+        UpdateReservoirFill(false);
     }
 
     private void Window_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
@@ -131,10 +193,13 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
+    private void Window_Activated(object? sender, EventArgs e) => _viewModel.RefreshFromSystemClock();
+
     public void ShowSettingsForSnapshot() => SelectDestination("Settings");
 
     public void PrepareForSnapshot(string mode)
     {
+        _viewModel.PrepareSnapshotFixture(mode);
         switch (mode)
         {
             case "compact":
@@ -142,25 +207,19 @@ public partial class MainWindow : Window
                 Height = MinHeight;
                 break;
             case "focus":
-                _focusSampleOnLoad = true;
+                _focusLogOnLoad = true;
                 break;
             case "high-contrast":
                 ThemeManager.ApplyHighContrastForSnapshot();
                 break;
-            case "bottom":
-                _scrollEndOnLoad = true;
-                break;
-            case "high-contrast-bottom":
-                ThemeManager.ApplyHighContrastForSnapshot();
-                _scrollEndOnLoad = true;
+            case "history":
+                SelectDestination("Insights");
                 break;
         }
     }
 
     private void Minimize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
-
-    private void Maximize_Click(object sender, RoutedEventArgs e) =>
-        WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+    private void Maximize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
 
     private void Window_StateChanged(object? sender, EventArgs e)
     {
@@ -183,6 +242,7 @@ public partial class MainWindow : Window
     public void AllowClose()
     {
         _allowClose = true;
+        _viewModel.PropertyChanged -= ViewModel_PropertyChanged;
         _viewModel.Dispose();
         Close();
     }

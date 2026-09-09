@@ -6,7 +6,7 @@
         Title="Waterline" Width="1280" Height="860" MinWidth="900" MinHeight="650"
         WindowStyle="None" ResizeMode="CanResize" WindowStartupLocation="CenterScreen"
         Background="{DynamicResource CanvasBrush}" Icon="pack://application:,,,/Assets/waterline-app.ico"
-        SizeChanged="Window_SizeChanged" StateChanged="Window_StateChanged" PreviewKeyDown="Window_PreviewKeyDown">
+        SizeChanged="Window_SizeChanged" StateChanged="Window_StateChanged" PreviewKeyDown="Window_PreviewKeyDown" Activated="Window_Activated">
   <shell:WindowChrome.WindowChrome>
     <shell:WindowChrome CaptionHeight="40" ResizeBorderThickness="7" GlassFrameThickness="0" CornerRadius="0" UseAeroCaptionButtons="False" />
   </shell:WindowChrome.WindowChrome>
@@ -16,9 +16,10 @@
       <Setter Property="StrokeThickness" Value="1.6" /><Setter Property="StrokeStartLineCap" Value="Round" /><Setter Property="StrokeEndLineCap" Value="Round" /><Setter Property="StrokeLineJoin" Value="Round" />
       <Setter Property="Stretch" Value="Uniform" /><Setter Property="Width" Value="18" /><Setter Property="Height" Value="18" />
     </Style>
-    <Style x:Key="FieldLabel" TargetType="TextBlock" BasedOn="{StaticResource BodyText}"><Setter Property="FontWeight" Value="SemiBold" /><Setter Property="Margin" Value="0,0,0,7" /></Style>
     <Style x:Key="StateChip" TargetType="Border"><Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource DividerBrush}" /><Setter Property="BorderThickness" Value="1" /><Setter Property="CornerRadius" Value="12" /><Setter Property="Padding" Value="9,4" /></Style>
-    <Style x:Key="SampleCard" TargetType="Border" BasedOn="{StaticResource Card}"><Setter Property="Margin" Value="0,0,0,16" /></Style>
+    <Style x:Key="SectionCard" TargetType="Border" BasedOn="{StaticResource Card}"><Setter Property="Margin" Value="0,0,0,16" /></Style>
+    <Style x:Key="ActivityNotice" TargetType="Border" BasedOn="{StaticResource Card}"><Setter Property="Padding" Value="16,12" /><Setter Property="BorderBrush" Value="{DynamicResource SuccessBrush}" /><Setter Property="Background" Value="{DynamicResource SurfaceBrush}" /><Style.Triggers><DataTrigger Binding="{Binding ActivityIsError}" Value="True"><Setter Property="BorderBrush" Value="{DynamicResource ErrorBrush}" /></DataTrigger></Style.Triggers></Style>
+    <Style x:Key="HistoryCheck" TargetType="Path"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding GoalReached}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style>
     <Storyboard x:Key="ShellEntrance">
       <DoubleAnimation Storyboard.TargetName="ShellRoot" Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.22" />
       <DoubleAnimation Storyboard.TargetName="ShellTranslate" Storyboard.TargetProperty="Y" From="8" To="0" Duration="0:0:0.28"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut" /></DoubleAnimation.EasingFunction></DoubleAnimation>
@@ -28,187 +29,67 @@
   <Grid x:Name="ShellRoot" Opacity="0" Background="{DynamicResource CanvasBrush}">
     <Grid.RenderTransform><TranslateTransform x:Name="ShellTranslate" /></Grid.RenderTransform>
     <Grid.RowDefinitions><RowDefinition Height="40" /><RowDefinition Height="56" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-
     <Border Grid.Row="0" Background="{DynamicResource CanvasRaisedBrush}" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,0,1">
       <Grid>
-        <StackPanel Orientation="Horizontal" Margin="14,0" VerticalAlignment="Center">
-          <Viewbox Width="22" Height="22"><Path Data="{StaticResource IconWaterline}" Stroke="{DynamicResource CyanBrush}" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" /></Viewbox>
-          <TextBlock Text="Waterline" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" Margin="9,0,0,0" VerticalAlignment="Center" />
-          <Border Style="{StaticResource StateChip}" Margin="12,0,0,0" Padding="7,2"><TextBlock Text="NATIVE PREVIEW" Style="{StaticResource MetadataText}" FontSize="10" Foreground="{DynamicResource AquaBrush}" /></Border>
-        </StackPanel>
-        <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" shell:WindowChrome.IsHitTestVisibleInChrome="True">
-          <Button Style="{StaticResource CaptionButton}" Click="Minimize_Click" automation:AutomationProperties.Name="Minimize Waterline" ToolTip="Minimize">
-            <Path Style="{StaticResource IconPath}" Data="{StaticResource IconMinimize}" />
-          </Button>
-          <Button Style="{StaticResource CaptionButton}" Click="Maximize_Click" automation:AutomationProperties.Name="Maximize or restore Waterline" ToolTip="Maximize or restore">
-            <Path x:Name="MaximizeGlyph" Style="{StaticResource IconPath}" Data="{StaticResource IconMaximize}" />
-          </Button>
-          <Button Style="{StaticResource CloseCaptionButton}" Click="WindowClose_Click" automation:AutomationProperties.Name="Close Waterline" ToolTip="Close">
-            <Path Style="{StaticResource IconPath}" Data="{StaticResource IconClose}" />
-          </Button>
-        </StackPanel>
+        <StackPanel Orientation="Horizontal" Margin="14,0" VerticalAlignment="Center"><Viewbox Width="22" Height="22"><Path Data="{StaticResource IconWaterline}" Stroke="{DynamicResource CyanBrush}" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" /></Viewbox><TextBlock Text="Waterline" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" Margin="9,0,0,0" VerticalAlignment="Center" /><Border Style="{StaticResource StateChip}" Margin="12,0,0,0" Padding="7,2"><TextBlock Text="LOCAL · PRIVATE" Style="{StaticResource MetadataText}" FontSize="10" Foreground="{DynamicResource AquaBrush}" /></Border></StackPanel>
+        <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" shell:WindowChrome.IsHitTestVisibleInChrome="True"><Button Style="{StaticResource CaptionButton}" Click="Minimize_Click" automation:AutomationProperties.Name="Minimize Waterline" ToolTip="Minimize"><Path Style="{StaticResource IconPath}" Data="{StaticResource IconMinimize}" /></Button><Button Style="{StaticResource CaptionButton}" Click="Maximize_Click" automation:AutomationProperties.Name="Maximize or restore Waterline" ToolTip="Maximize or restore"><Path x:Name="MaximizeGlyph" Style="{StaticResource IconPath}" Data="{StaticResource IconMaximize}" /></Button><Button Style="{StaticResource CloseCaptionButton}" Click="WindowClose_Click" automation:AutomationProperties.Name="Close Waterline" ToolTip="Close"><Path Style="{StaticResource IconPath}" Data="{StaticResource IconClose}" /></Button></StackPanel>
       </Grid>
     </Border>
 
     <Border Grid.Row="1" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,0,1">
       <Grid Margin="24,0">
         <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,24,0">
-          <Viewbox Width="28" Height="28"><Path Data="{StaticResource IconWaterline}" Stroke="{DynamicResource CyanBrush}" StrokeThickness="1.5" /></Viewbox>
-          <TextBlock Text="waterline" FontSize="18" FontWeight="SemiBold" Margin="10,0,0,0" />
-        </StackPanel>
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,24,0"><Viewbox Width="28" Height="28"><Path Data="{StaticResource IconWaterline}" Stroke="{DynamicResource CyanBrush}" StrokeThickness="1.5" /></Viewbox><TextBlock Text="waterline" FontSize="18" FontWeight="SemiBold" Margin="10,0,0,0" /></StackPanel>
         <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center">
-          <ToggleButton x:Name="TodayNav" Style="{StaticResource NavButton}" IsChecked="True" Click="Navigation_Click" Tag="Today" automation:AutomationProperties.Name="Today, selected">
-            <StackPanel Orientation="Horizontal"><Path Style="{StaticResource IconPath}" Data="{StaticResource IconToday}" /><TextBlock Text="Today" Margin="9,0,0,0" /></StackPanel>
-          </ToggleButton>
-          <ToggleButton x:Name="InsightsNav" Style="{StaticResource NavButton}" Click="Navigation_Click" Tag="Insights" automation:AutomationProperties.Name="Insights">
-            <StackPanel Orientation="Horizontal"><Path Style="{StaticResource IconPath}" Data="{StaticResource IconInsights}" /><TextBlock Text="Insights" Margin="9,0,0,0" /></StackPanel>
-          </ToggleButton>
-          <ToggleButton x:Name="GoalsNav" Style="{StaticResource NavButton}" Click="Navigation_Click" Tag="Goals" automation:AutomationProperties.Name="Goals">
-            <StackPanel Orientation="Horizontal"><Path Style="{StaticResource IconPath}" Data="{StaticResource IconGoals}" /><TextBlock Text="Goals" Margin="9,0,0,0" /></StackPanel>
-          </ToggleButton>
-          <ToggleButton x:Name="ScheduleNav" Style="{StaticResource NavButton}" Click="Navigation_Click" Tag="Schedule" automation:AutomationProperties.Name="Schedule">
-            <StackPanel Orientation="Horizontal"><Path Style="{StaticResource IconPath}" Data="{StaticResource IconSchedule}" /><TextBlock Text="Schedule" Margin="9,0,0,0" /></StackPanel>
-          </ToggleButton>
-          <ToggleButton x:Name="WidgetNav" Style="{StaticResource NavButton}" Click="Navigation_Click" Tag="Widget" automation:AutomationProperties.Name="Widget">
-            <StackPanel Orientation="Horizontal"><Path Style="{StaticResource IconPath}" Data="{StaticResource IconWidget}" /><TextBlock Text="Widget" Margin="9,0,0,0" /></StackPanel>
-          </ToggleButton>
-          <ToggleButton x:Name="SettingsNav" Style="{StaticResource NavButton}" Click="Navigation_Click" Tag="Settings" automation:AutomationProperties.Name="Settings">
-            <StackPanel Orientation="Horizontal"><Path Style="{StaticResource IconPath}" Data="{StaticResource IconSettings}" /><TextBlock Text="Settings" Margin="9,0,0,0" /></StackPanel>
-          </ToggleButton>
-          <ToggleButton x:Name="MoreNav" Style="{StaticResource NavButton}" Visibility="Collapsed" Click="More_Click" automation:AutomationProperties.Name="More destinations">
-            <StackPanel Orientation="Horizontal"><Path Style="{StaticResource IconPath}" Data="{StaticResource IconMore}" /><TextBlock Text="More" Margin="9,0,0,0" /></StackPanel>
-            <ToggleButton.ContextMenu>
-              <ContextMenu x:Name="MoreMenu">
-                <MenuItem Header="Widget" Click="WidgetMenu_Click" InputGestureText="Ctrl+5" />
-                <MenuItem Header="Settings" Click="SettingsMenu_Click" InputGestureText="Ctrl+6" />
-              </ContextMenu>
-            </ToggleButton.ContextMenu>
-          </ToggleButton>
+          <ToggleButton x:Name="TodayNav" Style="{StaticResource NavButton}" IsChecked="True" Click="Navigation_Click" Tag="Today" automation:AutomationProperties.Name="Today, selected"><StackPanel Orientation="Horizontal"><Path Style="{StaticResource IconPath}" Data="{StaticResource IconToday}" /><TextBlock Text="Today" Margin="9,0,0,0" /></StackPanel></ToggleButton>
+          <ToggleButton x:Name="InsightsNav" Style="{StaticResource NavButton}" Click="Navigation_Click" Tag="Insights" automation:AutomationProperties.Name="Insights"><StackPanel Orientation="Horizontal"><Path Style="{StaticResource IconPath}" Data="{StaticResource IconInsights}" /><TextBlock Text="Insights" Margin="9,0,0,0" /></StackPanel></ToggleButton>
+          <ToggleButton x:Name="GoalsNav" Style="{StaticResource NavButton}" Click="Navigation_Click" Tag="Goals" automation:AutomationProperties.Name="Goals"><StackPanel Orientation="Horizontal"><Path Style="{StaticResource IconPath}" Data="{StaticResource IconGoals}" /><TextBlock Text="Goals" Margin="9,0,0,0" /></StackPanel></ToggleButton>
+          <ToggleButton x:Name="ScheduleNav" Style="{StaticResource NavButton}" Click="Navigation_Click" Tag="Schedule" automation:AutomationProperties.Name="Schedule"><StackPanel Orientation="Horizontal"><Path Style="{StaticResource IconPath}" Data="{StaticResource IconSchedule}" /><TextBlock Text="Schedule" Margin="9,0,0,0" /></StackPanel></ToggleButton>
+          <ToggleButton x:Name="WidgetNav" Style="{StaticResource NavButton}" Click="Navigation_Click" Tag="Widget" automation:AutomationProperties.Name="Widget"><StackPanel Orientation="Horizontal"><Path Style="{StaticResource IconPath}" Data="{StaticResource IconWidget}" /><TextBlock Text="Widget" Margin="9,0,0,0" /></StackPanel></ToggleButton>
+          <ToggleButton x:Name="SettingsNav" Style="{StaticResource NavButton}" Click="Navigation_Click" Tag="Settings" automation:AutomationProperties.Name="Settings"><StackPanel Orientation="Horizontal"><Path Style="{StaticResource IconPath}" Data="{StaticResource IconSettings}" /><TextBlock Text="Settings" Margin="9,0,0,0" /></StackPanel></ToggleButton>
+          <ToggleButton x:Name="MoreNav" Style="{StaticResource NavButton}" Visibility="Collapsed" Click="More_Click" automation:AutomationProperties.Name="More destinations"><StackPanel Orientation="Horizontal"><Path Style="{StaticResource IconPath}" Data="{StaticResource IconMore}" /><TextBlock Text="More" Margin="9,0,0,0" /></StackPanel><ToggleButton.ContextMenu><ContextMenu x:Name="MoreMenu"><MenuItem Header="Widget" Click="WidgetMenu_Click" InputGestureText="Ctrl+5" /><MenuItem Header="Settings" Click="SettingsMenu_Click" InputGestureText="Ctrl+6" /></ContextMenu></ToggleButton.ContextMenu></ToggleButton>
         </StackPanel>
-        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-          <Ellipse Width="7" Height="7" Fill="{DynamicResource AquaBrush}" />
-          <TextBlock Text="Local only" Style="{StaticResource SecondaryText}" Margin="8,0,0,0" />
-        </StackPanel>
+        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center"><Ellipse Width="7" Height="7" Fill="{DynamicResource AquaBrush}" /><TextBlock Text="Local only" Style="{StaticResource SecondaryText}" Margin="8,0,0,0" /></StackPanel>
       </Grid>
     </Border>
 
     <Grid Grid.Row="2" ClipToBounds="True">
-      <Grid.Background><DynamicResource ResourceKey="CanvasBrush" /></Grid.Background>
       <Ellipse Width="600" Height="280" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="-220,-190,0,0" Fill="{DynamicResource AtmosphereBrush}" IsHitTestVisible="False" />
       <Path Data="M-80,500 C240,390 470,590 840,470 S1320,390 1510,520" Stroke="{DynamicResource AtmosphereLineBrush}" StrokeThickness="1" IsHitTestVisible="False" />
-      <ScrollViewer x:Name="MainScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0">
-        <StackPanel Margin="24,28,24,32">
-          <Grid Margin="0,0,0,24">
-            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+      <ScrollViewer x:Name="MainScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <Grid Margin="24,28,24,32">
+          <Grid x:Name="TodayView">
             <StackPanel>
-              <TextBlock x:Name="PageEyebrow" Text="PHASE 3 · NATIVE SYSTEM" Style="{StaticResource MetadataText}" Foreground="{DynamicResource CyanBrush}" />
-              <TextBlock x:Name="PageTitle" Text="Native component foundation" Style="{StaticResource PageTitleText}" Margin="0,5,0,0" />
-              <TextBlock Text="Reusable WPF controls, clear interaction states, and a shell built for Windows." Style="{StaticResource SecondaryText}" FontSize="14" Margin="0,4,0,0" />
-            </StackPanel>
-            <Border Grid.Column="1" Style="{StaticResource StateChip}" VerticalAlignment="Center"><StackPanel Orientation="Horizontal"><Ellipse Width="6" Height="6" Fill="{DynamicResource AquaBrush}" Margin="0,0,7,0" /><TextBlock Text="DESIGN SYSTEM LIVE" Style="{StaticResource MetadataText}" Foreground="{DynamicResource AquaBrush}" /></StackPanel></Border>
-          </Grid>
+              <Grid Margin="0,0,0,20"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><StackPanel><TextBlock Text="TODAY" Style="{StaticResource MetadataText}" Foreground="{DynamicResource CyanBrush}" /><TextBlock Text="Your water, at a glance" Style="{StaticResource PageTitleText}" Margin="0,5,0,0" /><TextBlock Text="{Binding DateLabel}" Style="{StaticResource SecondaryText}" Margin="0,4,0,0" /></StackPanel><Border Grid.Column="1" Style="{StaticResource StateChip}" VerticalAlignment="Center"><TextBlock Text="{Binding TodayStateLabel}" Style="{StaticResource MetadataText}" Foreground="{DynamicResource AquaBrush}" /></Border></Grid>
+              <Border Margin="0,0,0,16"><Border.Style><Style TargetType="Border" BasedOn="{StaticResource ActivityNotice}"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding HasActivityMessage}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></Border.Style><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><Path Data="{StaticResource IconInfo}" Stroke="{DynamicResource CyanBrush}" StrokeThickness="1.7" Width="16" Height="16" Stretch="Uniform" Margin="0,1,10,0" /><TextBlock Grid.Column="1" Text="{Binding ActivityMessage}" TextWrapping="Wrap" automation:AutomationProperties.LiveSetting="Polite" /><Button Grid.Column="2" Content="Restore saving" Click="Recover_Click" Margin="12,-6,-8,-6"><Button.Style><Style TargetType="Button" BasedOn="{StaticResource QuietButton}"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding CanAcknowledgeRecovery}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></Button.Style></Button></Grid></Border>
 
-          <Grid x:Name="ComponentColumns">
-            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
-            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="24" /><ColumnDefinition Width="300" /></Grid.ColumnDefinitions>
-            <StackPanel x:Name="PrimaryColumn">
-              <Border Style="{StaticResource SampleCard}">
-                <StackPanel>
-                  <TextBlock Text="Actions" Style="{StaticResource SectionTitleText}" />
-                  <TextBlock Text="Rest, hover, press, keyboard focus, default, destructive, and disabled states share fixed geometry." Style="{StaticResource SecondaryText}" Margin="0,4,0,18" TextWrapping="Wrap" />
-                  <WrapPanel>
-                    <Button x:Name="PrimarySampleButton" Style="{StaticResource PrimaryButton}" Content="Log 12 oz" Margin="0,0,10,10" IsDefault="True" />
-                    <Button x:Name="SecondarySampleButton" Content="Secondary" Margin="0,0,10,10" />
-                    <Button Style="{StaticResource QuietButton}" Content="Quiet action" Margin="0,0,10,10" />
-                    <Button Style="{StaticResource DestructiveButton}" Content="Remove entry" Margin="0,0,10,10" />
-                    <Button Content="Unavailable" IsEnabled="False" Margin="0,0,10,10" />
-                    <Button Style="{StaticResource IconButton}" Margin="0,0,10,10" ToolTip="More actions" automation:AutomationProperties.Name="More actions"><Path Style="{StaticResource IconPath}" Data="{StaticResource IconMore}" /></Button>
-                  </WrapPanel>
+              <Grid x:Name="TodayColumns">
+                <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="24" /><ColumnDefinition Width="340" /></Grid.ColumnDefinitions>
+                <StackPanel x:Name="TodayPrimary" IsEnabled="{Binding CanModifyData}">
+                  <Border Style="{StaticResource SectionCard}"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="210" /></Grid.ColumnDefinitions><StackPanel VerticalAlignment="Center" Margin="0,0,28,0"><TextBlock Text="TODAY’S TOTAL" Style="{StaticResource MetadataText}" Foreground="{DynamicResource CyanBrush}" /><StackPanel Orientation="Horizontal" Margin="0,7,0,0"><TextBlock Text="{Binding TotalLabel}" FontFamily="{StaticResource DisplayFont}" FontSize="68" FontWeight="SemiBold" Foreground="{DynamicResource CyanBrush}" /><TextBlock Text="{Binding GoalLabel}" FontFamily="{StaticResource DisplayFont}" FontSize="34" Margin="10,23,0,0" /></StackPanel><TextBlock Text="{Binding PercentLabel}" FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource AquaBrush}" Margin="0,3,0,0" /><TextBlock Text="{Binding RemainingLabel}" Style="{StaticResource SecondaryText}" FontSize="14" Margin="0,6,0,0" /></StackPanel><Grid Grid.Column="1" Height="292" VerticalAlignment="Center"><Border Width="118" Height="270" HorizontalAlignment="Center" VerticalAlignment="Bottom" CornerRadius="36" BorderBrush="{DynamicResource BoundaryBrush}" BorderThickness="2" Background="{DynamicResource CanvasRaisedBrush}" ClipToBounds="True"><Grid VerticalAlignment="Bottom"><Border x:Name="ReservoirFill" Height="{Binding ReservoirFillHeight}" VerticalAlignment="Bottom" CornerRadius="0,0,32,32"><Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="0,1"><GradientStop Color="#FF68F2D0" /><GradientStop Color="#FF16BCEB" Offset=".55" /><GradientStop Color="#FF0875C4" Offset="1" /></LinearGradientBrush></Border.Background></Border><Path Data="M0,8 C26,-4 56,20 88,6 C102,0 112,2 118,5" Stroke="{DynamicResource FocusBrush}" StrokeThickness="2" VerticalAlignment="Top" Stretch="Fill" Height="18" /></Grid></Border><StackPanel HorizontalAlignment="Right" VerticalAlignment="Stretch" Margin="0,12,0,10"><TextBlock Text="100%" Style="{StaticResource MetadataText}" /><TextBlock Text="75" Style="{StaticResource MetadataText}" Margin="0,49,0,0" /><TextBlock Text="50" Style="{StaticResource MetadataText}" Margin="0,49,0,0" /><TextBlock Text="25" Style="{StaticResource MetadataText}" Margin="0,49,0,0" /><TextBlock Text="0" Style="{StaticResource MetadataText}" Margin="0,49,0,0" /></StackPanel></Grid></Grid></Border>
+                  <Border Style="{StaticResource SectionCard}"><StackPanel><TextBlock Text="Log water" Style="{StaticResource SectionTitleText}" /><TextBlock Text="Choose an amount. Waterline saves it locally and updates today immediately." Style="{StaticResource SecondaryText}" Margin="0,3,0,15" /><Button x:Name="Log12Button" Style="{StaticResource PrimaryButton}" Click="Add12_Click" IsDefault="True" automation:AutomationProperties.Name="Log 12 ounces"><StackPanel Orientation="Horizontal"><Viewbox Width="18" Height="18"><Path Data="{StaticResource IconWaterline}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.7" /></Viewbox><TextBlock Text="Log 12 oz" Margin="9,0,0,0" /></StackPanel></Button><UniformGrid x:Name="SecondaryLogButtons" Columns="3" Margin="0,10,0,0"><Button Content="+ 8 oz" Click="Add8_Click" Margin="0,0,5,0" automation:AutomationProperties.Name="Log 8 ounces" /><Button Content="+ 16 oz" Click="Add16_Click" Margin="5,0" automation:AutomationProperties.Name="Log 16 ounces" /><Button Content="Custom" Click="Custom_Click" Margin="5,0,0,0" automation:AutomationProperties.Name="Log a custom amount" /></UniformGrid></StackPanel></Border>
                 </StackPanel>
-              </Border>
-
-              <Border Style="{StaticResource SampleCard}">
-                <StackPanel>
-                  <TextBlock Text="Inputs and selection" Style="{StaticResource SectionTitleText}" />
-                  <TextBlock Text="Every field keeps its boundary, focus indicator, label, and error message without shifting layout." Style="{StaticResource SecondaryText}" Margin="0,4,0,18" TextWrapping="Wrap" />
-                  <Grid>
-                    <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="16" /><ColumnDefinition /></Grid.ColumnDefinitions>
-                    <StackPanel>
-                      <TextBlock Text="Daily goal" Style="{StaticResource FieldLabel}" />
-                      <TextBox Text="80" automation:AutomationProperties.Name="Daily goal in ounces" />
-                      <TextBlock Text="Stored locally in ounces." Style="{StaticResource SecondaryText}" Margin="0,6,0,16" />
-                      <TextBlock Text="Invalid amount" Style="{StaticResource FieldLabel}" />
-                      <TextBox Text="700" BorderBrush="{DynamicResource ErrorBrush}" BorderThickness="2" automation:AutomationProperties.Name="Invalid amount sample" />
-                      <StackPanel Orientation="Horizontal" Margin="0,6,0,0"><Path Data="{StaticResource IconWarning}" Stroke="{DynamicResource ErrorBrush}" StrokeThickness="1.6" Width="13" Height="13" Stretch="Uniform" /><TextBlock Text="Enter 0.1–64 oz." Style="{StaticResource SecondaryText}" Foreground="{DynamicResource ErrorBrush}" Margin="6,0,0,0" /></StackPanel>
-                    </StackPanel>
-                    <StackPanel Grid.Column="2">
-                      <TextBlock Text="Reminder interval" Style="{StaticResource FieldLabel}" />
-                      <ComboBox SelectedIndex="2" automation:AutomationProperties.Name="Reminder interval"><ComboBoxItem Content="30 minutes" /><ComboBoxItem Content="45 minutes" /><ComboBoxItem Content="1 hour" /><ComboBoxItem Content="90 minutes" /></ComboBox>
-                      <CheckBox Content="Weekdays only" IsChecked="True" Margin="0,14,0,0" />
-                      <CheckBox Content="Mixed selection" IsThreeState="True" IsChecked="{x:Null}" Margin="0,2,0,0" />
-                      <Grid Margin="0,8,0,0"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><TextBlock Text="Gentle reminders" Style="{StaticResource BodyText}" VerticalAlignment="Center" /><ToggleButton Grid.Column="1" Style="{StaticResource SwitchToggle}" IsChecked="True" automation:AutomationProperties.Name="Gentle reminders" /></Grid>
-                      <Grid Margin="0,8,0,0"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><TextBlock Text="Disabled setting" Style="{StaticResource BodyText}" VerticalAlignment="Center" /><ToggleButton Grid.Column="1" Style="{StaticResource SwitchToggle}" IsEnabled="False" /></Grid>
-                    </StackPanel>
-                  </Grid>
+                <StackPanel x:Name="TodayRail" Grid.Column="2">
+                  <Border Style="{StaticResource SectionCard}" Background="{DynamicResource ActivityRailBrush}"><StackPanel><StackPanel Orientation="Horizontal"><Viewbox Width="22" Height="22"><Path Data="{StaticResource IconSchedule}" Stroke="{DynamicResource CyanBrush}" StrokeThickness="1.6" /></Viewbox><TextBlock Text="Reminder" Style="{StaticResource SectionTitleText}" FontSize="18" Margin="10,0,0,0" /></StackPanel><TextBlock Text="{Binding ReminderLabel}" FontSize="19" FontWeight="SemiBold" Margin="0,14,0,0" /><TextBlock Text="Logging water restarts the reminder interval." Style="{StaticResource SecondaryText}" TextWrapping="Wrap" Margin="0,5,0,0" /></StackPanel></Border>
+                  <Border Style="{StaticResource SectionCard}" Background="{DynamicResource ActivityRailBrush}"><StackPanel><StackPanel Orientation="Horizontal"><Viewbox Width="22" Height="22"><Path Data="{StaticResource IconGoals}" Stroke="{DynamicResource AquaBrush}" StrokeThickness="1.6" /></Viewbox><TextBlock Text="{Binding PaceTitle}" Style="{StaticResource SectionTitleText}" FontSize="18" Margin="10,0,0,0" /></StackPanel><ProgressBar Value="{Binding ProgressPercent, Mode=OneWay}" Maximum="100" Margin="0,15,0,10" automation:AutomationProperties.Name="Hydration pace progress" /><TextBlock Text="{Binding PaceBody}" TextWrapping="Wrap" /><TextBlock Text="{Binding PaceGuidance}" Style="{StaticResource SecondaryText}" TextWrapping="Wrap" Margin="0,7,0,0" /></StackPanel></Border>
+                  <Border Style="{StaticResource SectionCard}" Background="{DynamicResource ActivityRailBrush}"><StackPanel><Grid><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><TextBlock Text="Recent sips" Style="{StaticResource SectionTitleText}" FontSize="18" /><Button Grid.Column="1" Style="{StaticResource QuietButton}" Content="Undo latest" Click="Undo_Click" IsEnabled="{Binding CanUndo}" Padding="9,5" automation:AutomationProperties.HelpText="Available only for the latest entry from the current local day" /></Grid><Grid Margin="0,11,0,0"><ItemsControl ItemsSource="{Binding RecentEntries}" automation:AutomationProperties.Name="Today’s recent water entries"><ItemsControl.ItemTemplate><DataTemplate><Grid Margin="0,0,0,9"><Grid.ColumnDefinitions><ColumnDefinition Width="28" /><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><Viewbox Width="16" Height="16" HorizontalAlignment="Left"><Path Data="{StaticResource IconWaterline}" Stroke="{DynamicResource CyanBrush}" StrokeThickness="1.6" /></Viewbox><TextBlock Grid.Column="1" Text="{Binding AmountLabel}" FontWeight="SemiBold" automation:AutomationProperties.Name="{Binding AccessibleLabel}" /><TextBlock Grid.Column="2" Text="{Binding TimeLabel}" Style="{StaticResource SecondaryText}" /></Grid></DataTemplate></ItemsControl.ItemTemplate></ItemsControl><StackPanel><StackPanel.Style><Style TargetType="StackPanel"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding HasTodayEntries}" Value="False"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></StackPanel.Style><TextBlock Text="No water logged yet" FontWeight="SemiBold" /><TextBlock Text="Your first sip will appear here with its local time." Style="{StaticResource SecondaryText}" TextWrapping="Wrap" Margin="0,4,0,0" /></StackPanel></Grid></StackPanel></Border>
                 </StackPanel>
-              </Border>
-
-              <Border Style="{StaticResource SampleCard}">
-                <StackPanel>
-                  <TextBlock Text="Lists, progress, and scrolling" Style="{StaticResource SectionTitleText}" />
-                  <TextBlock Text="Selection combines surface, text, and focus treatment. The scrollbar provides a 12-pixel interaction channel." Style="{StaticResource SecondaryText}" Margin="0,4,0,15" TextWrapping="Wrap" />
-                  <ProgressBar Value="58" Maximum="100" Margin="0,0,0,14" automation:AutomationProperties.Name="58 percent hydration progress" />
-                  <ListBox SelectedIndex="1" Height="126" automation:AutomationProperties.Name="Component state list">
-                    <ListBoxItem Content="Empty day · no fabricated activity" />
-                    <ListBoxItem Content="Tuesday · 46 oz · selected" />
-                    <ListBoxItem Content="Wednesday · 80 oz · goal complete" />
-                    <ListBoxItem Content="Unavailable item" IsEnabled="False" />
-                  </ListBox>
-                </StackPanel>
-              </Border>
-            </StackPanel>
-
-            <StackPanel x:Name="ActivityRail" Grid.Column="2">
-              <Border Style="{StaticResource SampleCard}" Background="{DynamicResource ActivityRailBrush}">
-                <StackPanel>
-                  <TextBlock Text="Interaction states" Style="{StaticResource SectionTitleText}" />
-                  <TextBlock Text="Use Tab and Shift+Tab to inspect visible focus. Ctrl+1–6 changes destinations." Style="{StaticResource SecondaryText}" Margin="0,4,0,16" TextWrapping="Wrap" />
-                  <WrapPanel>
-                    <Border Style="{StaticResource StateChip}" Margin="0,0,6,6"><TextBlock Text="REST" Style="{StaticResource MetadataText}" /></Border>
-                    <Border Style="{StaticResource StateChip}" Margin="0,0,6,6" BorderBrush="{DynamicResource FocusBrush}"><TextBlock Text="FOCUS" Style="{StaticResource MetadataText}" Foreground="{DynamicResource FocusBrush}" /></Border>
-                    <Border Style="{StaticResource StateChip}" Margin="0,0,6,6" BorderBrush="{DynamicResource SuccessBrush}"><TextBlock Text="SUCCESS" Style="{StaticResource MetadataText}" Foreground="{DynamicResource SuccessBrush}" /></Border>
-                    <Border Style="{StaticResource StateChip}" Margin="0,0,6,6" BorderBrush="{DynamicResource ErrorBrush}"><TextBlock Text="ERROR" Style="{StaticResource MetadataText}" Foreground="{DynamicResource ErrorBrush}" /></Border>
-                  </WrapPanel>
-                </StackPanel>
-              </Border>
-
-              <Border Style="{StaticResource SampleCard}" Background="{DynamicResource ActivityRailBrush}">
-                <StackPanel>
-                  <TextBlock Text="Menus and tooltips" Style="{StaticResource SectionTitleText}" />
-                  <TextBlock Text="Opaque floating surfaces remain readable over atmosphere." Style="{StaticResource SecondaryText}" Margin="0,4,0,14" TextWrapping="Wrap" />
-                  <Button x:Name="MenuSampleButton" Content="Open sample menu" HorizontalAlignment="Stretch" Click="SampleMenu_Click">
-                    <Button.ContextMenu><ContextMenu x:Name="SampleMenu"><MenuItem Header="Log water" InputGestureText="Ctrl+L" /><MenuItem Header="Show widget" IsCheckable="True" IsChecked="True" /><Separator /><MenuItem Header="Unavailable command" IsEnabled="False" /></ContextMenu></Button.ContextMenu>
-                  </Button>
-                  <Button Style="{StaticResource QuietButton}" Content="Hover for guidance" ToolTip="Waterline keeps hydration data on this device." Margin="0,8,0,0" />
-                </StackPanel>
-              </Border>
-
-              <Border Style="{StaticResource SampleCard}" Background="{DynamicResource ActivityRailBrush}">
-                <StackPanel>
-                  <TextBlock Text="Dialog surface" Style="{StaticResource SectionTitleText}" />
-                  <TextBlock Text="Confirm routine" Style="{StaticResource BodyText}" FontWeight="SemiBold" Margin="0,14,0,3" />
-                  <TextBlock Text="Save the goal and reminder schedule on this PC?" Style="{StaticResource SecondaryText}" TextWrapping="Wrap" />
-                  <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0"><Button Style="{StaticResource QuietButton}" Content="Cancel" Margin="0,0,8,0" /><Button Content="Save" IsDefault="True" /></StackPanel>
-                </StackPanel>
-              </Border>
-
-              <Border Style="{StaticResource SampleCard}" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource SuccessBrush}">
-                <StackPanel Orientation="Horizontal"><Path Data="{StaticResource IconCheck}" Stroke="{DynamicResource SuccessBrush}" StrokeThickness="1.8" Width="17" Height="17" Stretch="Uniform" Margin="0,1,10,0" /><StackPanel><TextBlock Text="Changes saved" FontWeight="SemiBold" Foreground="{DynamicResource SuccessBrush}" /><TextBlock Text="This persistent feedback remains readable without sound." Style="{StaticResource SecondaryText}" TextWrapping="Wrap" Margin="0,3,0,0" /></StackPanel></StackPanel>
-              </Border>
+              </Grid>
             </StackPanel>
           </Grid>
-        </StackPanel>
+
+          <Grid x:Name="InsightsView" Visibility="Collapsed">
+            <StackPanel>
+              <StackPanel Margin="0,0,0,22"><TextBlock Text="INSIGHTS · LAST 7 DAYS" Style="{StaticResource MetadataText}" Foreground="{DynamicResource CyanBrush}" /><TextBlock Text="Your hydration history" Style="{StaticResource PageTitleText}" Margin="0,5,0,0" /><TextBlock Text="Seven local calendar days ending today. Historical amounts stay unchanged when your goal changes." Style="{StaticResource SecondaryText}" FontSize="14" Margin="0,4,0,0" /></StackPanel>
+              <Grid x:Name="HistoryColumns"><Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="24" /><ColumnDefinition Width="380" /></Grid.ColumnDefinitions>
+                <Border Style="{StaticResource SectionCard}"><StackPanel><TextBlock Text="Daily totals" Style="{StaticResource SectionTitleText}" /><TextBlock Text="Select any day for its entries. A check marks days that reached the current goal." Style="{StaticResource SecondaryText}" Margin="0,3,0,14" /><ListBox x:Name="HistoryDayList" ItemsSource="{Binding HistoryDays}" SelectedItem="{Binding SelectedHistoryDay, Mode=TwoWay}" automation:AutomationProperties.Name="Seven-day hydration history"><ListBox.ItemTemplate><DataTemplate><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="100" /><ColumnDefinition Width="*" /><ColumnDefinition Width="100" /><ColumnDefinition Width="22" /></Grid.ColumnDefinitions><StackPanel><TextBlock Text="{Binding DayName}" FontWeight="SemiBold" /><TextBlock Text="{Binding DateLabel}" Style="{StaticResource SecondaryText}" /></StackPanel><ProgressBar Grid.Column="1" Value="{Binding ProgressPercent, Mode=OneWay}" Maximum="100" Margin="12,0" VerticalAlignment="Center" automation:AutomationProperties.Name="{Binding StatusLabel}" /><StackPanel Grid.Column="2" HorizontalAlignment="Right"><TextBlock Text="{Binding TotalLabel}" FontWeight="SemiBold" HorizontalAlignment="Right" /><TextBlock Text="{Binding StatusLabel}" Style="{StaticResource SecondaryText}" HorizontalAlignment="Right" /></StackPanel><Path Grid.Column="3" Style="{StaticResource HistoryCheck}" Data="{StaticResource IconCheck}" Stroke="{DynamicResource SuccessBrush}" StrokeThickness="1.8" Width="15" Height="15" Stretch="Uniform" Margin="7,0,0,0" /></Grid></DataTemplate></ListBox.ItemTemplate></ListBox></StackPanel></Border>
+                <Border x:Name="HistoryDetail" Grid.Column="2" Style="{StaticResource SectionCard}" Background="{DynamicResource ActivityRailBrush}"><StackPanel><TextBlock Text="{Binding SelectedHistoryTitle}" Style="{StaticResource SectionTitleText}" /><TextBlock Text="{Binding SelectedHistorySummary}" Style="{StaticResource SecondaryText}" Margin="0,4,0,16" /><ItemsControl ItemsSource="{Binding HistoryEntries}" automation:AutomationProperties.Name="Selected day entries"><ItemsControl.ItemTemplate><DataTemplate><Border BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,0,1" Padding="0,10"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="30" /><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><Viewbox Width="17" Height="17" HorizontalAlignment="Left"><Path Data="{StaticResource IconWaterline}" Stroke="{DynamicResource CyanBrush}" StrokeThickness="1.6" /></Viewbox><TextBlock Grid.Column="1" Text="{Binding AmountLabel}" FontWeight="SemiBold" automation:AutomationProperties.Name="{Binding AccessibleLabel}" /><TextBlock Grid.Column="2" Text="{Binding TimeLabel}" Style="{StaticResource SecondaryText}" /></Grid></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl><StackPanel><StackPanel.Style><Style TargetType="StackPanel"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding HasSelectedHistoryEntries}" Value="False"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></StackPanel.Style><Border Width="48" Height="48" CornerRadius="24" Background="{DynamicResource SurfaceRaisedBrush}" HorizontalAlignment="Left"><Viewbox Width="22" Height="22"><Path Data="{StaticResource IconWaterline}" Stroke="{DynamicResource TextTertiaryBrush}" StrokeThickness="1.5" /></Viewbox></Border><TextBlock Text="A quiet day" FontWeight="SemiBold" Margin="0,12,0,0" /><TextBlock Text="No water entries were recorded for this local day." Style="{StaticResource SecondaryText}" TextWrapping="Wrap" Margin="0,4,0,0" /></StackPanel></StackPanel></Border>
+              </Grid>
+            </StackPanel>
+          </Grid>
+
+          <Grid x:Name="PlaceholderView" Visibility="Collapsed"><Border Style="{StaticResource Card}" MaxWidth="680" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,60,0,0"><StackPanel><TextBlock x:Name="PlaceholderEyebrow" Text="NEXT PHASE" Style="{StaticResource MetadataText}" Foreground="{DynamicResource CyanBrush}" /><TextBlock x:Name="PlaceholderTitle" Text="Coming in a later phase" Style="{StaticResource PageTitleText}" Margin="0,7,0,0" /><TextBlock x:Name="PlaceholderBody" Text="This destination remains available in the approved shell and will be completed in its scheduled rebuild phase." Style="{StaticResource SecondaryText}" FontSize="14" TextWrapping="Wrap" Margin="0,8,0,0" /></StackPanel></Border></Grid>
+        </Grid>
       </ScrollViewer>
     </Grid>
   </Grid>

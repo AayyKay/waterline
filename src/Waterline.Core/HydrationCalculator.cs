@@ -39,6 +39,19 @@ public static class HydrationCalculator
             .ToList();
     }
 
+    public static IReadOnlyList<DrinkEntry> GetEntriesForDay(
+        IEnumerable<DrinkEntry> entries,
+        DateOnly localDay,
+        TimeZoneInfo timeZone) => entries
+        .Where(entry => GetLocalDay(entry.RecordedAt, timeZone) == localDay)
+        .OrderByDescending(entry => entry.RecordedAt)
+        .ToList();
+
+    public static DrinkEntry? GetMostRecentEntry(
+        IEnumerable<DrinkEntry> entries,
+        DateOnly localDay,
+        TimeZoneInfo timeZone) => GetEntriesForDay(entries, localDay, timeZone).FirstOrDefault();
+
     public static DateOnly GetLocalDay(DateTimeOffset instant, TimeZoneInfo timeZone) =>
         DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(instant, timeZone).DateTime);
 }
