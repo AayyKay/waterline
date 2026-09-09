@@ -7,6 +7,7 @@
       <ResourceDictionary.MergedDictionaries>
         <ResourceDictionary Source="Resources/Tokens/Colors.xaml" />
         <ResourceDictionary Source="Resources/Tokens/Typography.xaml" />
+        <ResourceDictionary Source="Resources/Tokens/Motion.xaml" />
         <ResourceDictionary Source="Resources/Icons/Icons.xaml" />
         <ResourceDictionary Source="Resources/Controls/Controls.xaml" />
         <ResourceDictionary Source="Resources/Surfaces/Surfaces.xaml" />

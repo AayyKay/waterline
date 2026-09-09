@@ -1,0 +1,9 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Duration x:Key="MotionQuickDuration">0:0:0.18</Duration>
+  <Duration x:Key="MotionEnterDuration">0:0:0.24</Duration>
+  <Duration x:Key="MotionFillDuration">0:0:0.50</Duration>
+  <Duration x:Key="MotionSettleDuration">0:0:1.05</Duration>
+  <Duration x:Key="MotionCurrentDuration">0:0:28</Duration>
+  <Duration x:Key="MotionWidgetCurrentDuration">0:0:18</Duration>
+</ResourceDictionary>

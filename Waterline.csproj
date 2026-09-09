@@ -22,6 +22,8 @@
     <Resource Include="public\icons\waterline-app.ico" Link="Assets\waterline-app.ico" />
     <Resource Include="public\icons\waterline-tray.ico" Link="Assets\waterline-tray.ico" />
     <Resource Include="public\icons\waterline-tray.png" Link="Assets\waterline-tray.png" />
+    <Resource Include="public\audio\waterline-log.wav" Link="Assets\waterline-log.wav" />
+    <Resource Include="public\audio\waterline-reminder.wav" Link="Assets\waterline-reminder.wav" />
     <Compile Remove="Waterline.Tests\**\*.cs" />
     <Compile Remove="src\**\*.cs" />
     <Compile Remove="tools\**\*.cs" />

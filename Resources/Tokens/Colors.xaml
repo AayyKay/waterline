@@ -28,6 +28,9 @@
   <Color x:Key="SelectedThumbColor">#FF43E4F7</Color>
   <Color x:Key="CloseHoverColor">#FFC42B42</Color>
   <Color x:Key="ClosePressedColor">#FF981E32</Color>
+  <Color x:Key="ReservoirTopColor">#FF68F2D0</Color>
+  <Color x:Key="ReservoirMiddleColor">#FF16BCEB</Color>
+  <Color x:Key="ReservoirBottomColor">#FF0875C4</Color>
 
   <SolidColorBrush x:Key="CanvasBrush" Color="{StaticResource CanvasColor}" />
   <SolidColorBrush x:Key="CanvasRaisedBrush" Color="{StaticResource CanvasRaisedColor}" />
@@ -56,6 +59,7 @@
   <SolidColorBrush x:Key="SelectedThumbBrush" Color="{StaticResource SelectedThumbColor}" />
   <SolidColorBrush x:Key="CloseHoverBrush" Color="{StaticResource CloseHoverColor}" />
   <SolidColorBrush x:Key="ClosePressedBrush" Color="{StaticResource ClosePressedColor}" />
+  <LinearGradientBrush x:Key="ReservoirBrush" StartPoint="0,0" EndPoint="0,1"><GradientStop Color="{StaticResource ReservoirTopColor}" /><GradientStop Color="{StaticResource ReservoirMiddleColor}" Offset=".55" /><GradientStop Color="{StaticResource ReservoirBottomColor}" Offset="1" /></LinearGradientBrush>
   <system:Double x:Key="DialogShadowOpacity">0.55</system:Double>
   <system:Boolean x:Key="FloatingShadowEnabled">True</system:Boolean>
 

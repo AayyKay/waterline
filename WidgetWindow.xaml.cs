@@ -23,6 +23,7 @@ public partial class WidgetWindow : Window
     private readonly Action _showDashboard;
     private readonly DispatcherTimer _placementTimer = new() { Interval = TimeSpan.FromMilliseconds(450) };
     private string _mode;
+    private bool _ambientMotionRunning;
     private bool _restoring;
 
     public WidgetWindow(MainViewModel viewModel, Action? showDashboard = null)
@@ -35,7 +36,10 @@ public partial class WidgetWindow : Window
         _current = this;
         _placementTimer.Tick += PlacementTimer_Tick;
         _viewModel.PropertyChanged += ViewModel_PropertyChanged;
+        SystemParameters.StaticPropertyChanged += SystemParameters_StaticPropertyChanged;
         Loaded += WidgetWindow_Loaded;
+        IsVisibleChanged += (_, _) => UpdateMotionState();
+        StateChanged += (_, _) => UpdateMotionState();
         LocationChanged += (_, _) => QueuePlacementSave();
         DpiChanged += (_, _) => Dispatcher.BeginInvoke(ClampCurrentPlacement);
         SystemEvents.DisplaySettingsChanged += SystemEvents_DisplaySettingsChanged;
@@ -66,13 +70,14 @@ public partial class WidgetWindow : Window
         ApplyMode(_mode, restorePlacement: false, persist: false);
         RestorePlacement();
         SavePlacement();
-        if (SystemParameters.ClientAreaAnimation)
+        if (MotionPolicy.IsEnabled)
             ((System.Windows.Media.Animation.Storyboard)Resources["WidgetEntrance"]).Begin(this, true);
         else
         {
             WidgetSurface.Opacity = 1;
             WidgetTranslate.Y = 0;
         }
+        UpdateMotionState();
         AvailabilityChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -81,6 +86,8 @@ public partial class WidgetWindow : Window
         SavePlacement();
         _placementTimer.Stop();
         _viewModel.PropertyChanged -= ViewModel_PropertyChanged;
+        SystemParameters.StaticPropertyChanged -= SystemParameters_StaticPropertyChanged;
+        ((System.Windows.Media.Animation.Storyboard)Resources["WidgetAmbient"]).Remove(this);
         SystemEvents.DisplaySettingsChanged -= SystemEvents_DisplaySettingsChanged;
         if (ReferenceEquals(_current, this)) _current = null;
         AvailabilityChanged?.Invoke(this, EventArgs.Empty);
@@ -93,6 +100,30 @@ public partial class WidgetWindow : Window
     {
         if (e.PropertyName == nameof(MainViewModel.CurrentWidgetMode) && _viewModel.CurrentWidgetMode != _mode)
             ApplyMode(_viewModel.CurrentWidgetMode, restorePlacement: true);
+    }
+
+    private void SystemParameters_StaticPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(SystemParameters.ClientAreaAnimation) or nameof(SystemParameters.HighContrast))
+            UpdateMotionState();
+    }
+
+    private void UpdateMotionState()
+    {
+        if (!IsLoaded) return;
+        var shouldRun = MotionPolicy.IsEnabled && IsVisible && WindowState != WindowState.Minimized;
+        var ambient = (System.Windows.Media.Animation.Storyboard)Resources["WidgetAmbient"];
+        if (shouldRun && !_ambientMotionRunning)
+        {
+            ambient.Begin(this, true);
+            _ambientMotionRunning = true;
+        }
+        else if (!shouldRun && _ambientMotionRunning)
+        {
+            ambient.Remove(this);
+            WidgetCurrentTranslate.X = 0;
+            _ambientMotionRunning = false;
+        }
     }
 
     private void ClampCurrentPlacement()
@@ -132,6 +163,7 @@ public partial class WidgetWindow : Window
         MinWidth = MaxWidth = Width;
         MinHeight = MaxHeight = Height;
         if (restorePlacement) RestorePlacement(placement);
+        UpdateMotionState();
         if (persist) SavePlacement();
     }
 

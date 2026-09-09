@@ -50,6 +50,7 @@ public partial class App : System.Windows.Application
         if (snapshotIndex >= 0 && snapshotIndex + 1 < e.Args.Length)
         {
             var mode = snapshotIndex + 2 < e.Args.Length ? e.Args[snapshotIndex + 2] : "main";
+            if (!mode.StartsWith("motion-", StringComparison.Ordinal)) MotionPolicy.ForceReducedForSnapshot();
             _mainWindow.PrepareForSnapshot(mode);
             _mainWindow.Show();
             _ = CaptureSnapshotAsync(viewModel, e.Args[snapshotIndex + 1], mode);
@@ -83,15 +84,22 @@ public partial class App : System.Windows.Application
             dialog.Show();
             target = dialog;
         }
-        if (mode is "widget" or "collapsed" or "widget-high-contrast" or "collapsed-high-contrast")
+        if (mode is "widget" or "collapsed" or "widget-high-contrast" or "collapsed-high-contrast" or "widget-reduced-motion" or "collapsed-reduced-motion" or "motion-widget" or "motion-collapsed")
         {
             _mainWindow!.Hide();
             var widget = new WidgetWindow(viewModel, ShowMainWindow);
             widget.Show();
-            if (mode is "collapsed" or "collapsed-high-contrast") widget.SetCollapsedForSnapshot();
+            if (mode is "collapsed" or "collapsed-high-contrast" or "collapsed-reduced-motion" or "motion-collapsed") widget.SetCollapsedForSnapshot();
             target = widget;
         }
-        await Task.Delay(700);
+        if (mode == "motion-log")
+        {
+            await Task.Delay(120);
+            viewModel.Settings.SoundsEnabled = false;
+            viewModel.AddDrink(12);
+            await Task.Delay(180);
+        }
+        else await Task.Delay(700);
         VisualSnapshot.Save(target, path);
         target.Close();
         viewModel.Dispose();

@@ -52,6 +52,11 @@ internal static class ThemeManager
                 if (WpfApplication.Current.TryFindResource(colorKey) is MediaColor color)
                     WpfApplication.Current.Resources[key] = new SolidColorBrush(color);
             }
+            var reservoir = new LinearGradientBrush { StartPoint = new System.Windows.Point(0, 0), EndPoint = new System.Windows.Point(0, 1) };
+            reservoir.GradientStops.Add(new GradientStop((MediaColor)WpfApplication.Current.FindResource("ReservoirTopColor"), 0));
+            reservoir.GradientStops.Add(new GradientStop((MediaColor)WpfApplication.Current.FindResource("ReservoirMiddleColor"), .55));
+            reservoir.GradientStops.Add(new GradientStop((MediaColor)WpfApplication.Current.FindResource("ReservoirBottomColor"), 1));
+            WpfApplication.Current.Resources["ReservoirBrush"] = reservoir;
             return;
         }
 
@@ -75,6 +80,7 @@ internal static class ThemeManager
         Set("ScrimBrush", WpfSystemColors.WindowBrush); Set("InkBrush", WpfSystemColors.WindowTextBrush);
         Set("MutedBrush", WpfSystemColors.WindowTextBrush); Set("LineBrush", WpfSystemColors.WindowTextBrush);
         Set("PanelBrush", WpfSystemColors.ControlBrush);
+        Set("ReservoirBrush", WpfSystemColors.HighlightBrush);
         WpfApplication.Current.Resources["DialogShadowOpacity"] = 0d;
         WpfApplication.Current.Resources["FloatingShadowEnabled"] = false;
     }

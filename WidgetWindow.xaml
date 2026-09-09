@@ -10,8 +10,13 @@
         WindowStartupLocation="Manual" PreviewMouseLeftButtonDown="Window_PreviewMouseLeftButtonDown">
   <Window.Resources>
     <Storyboard x:Key="WidgetEntrance">
-      <DoubleAnimation Storyboard.TargetName="WidgetSurface" Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:.2" />
-      <DoubleAnimation Storyboard.TargetName="WidgetTranslate" Storyboard.TargetProperty="Y" From="8" To="0" Duration="0:0:.24" />
+      <DoubleAnimation Storyboard.TargetName="WidgetSurface" Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="{StaticResource MotionQuickDuration}" />
+      <DoubleAnimation Storyboard.TargetName="WidgetTranslate" Storyboard.TargetProperty="Y" From="8" To="0" Duration="{StaticResource MotionEnterDuration}" />
+    </Storyboard>
+    <Storyboard x:Key="WidgetAmbient">
+      <DoubleAnimation Storyboard.TargetName="WidgetCurrentTranslate" Storyboard.TargetProperty="X" From="-10" To="10" Duration="{StaticResource MotionWidgetCurrentDuration}" AutoReverse="True" RepeatBehavior="Forever" />
+      <DoubleAnimation Storyboard.TargetName="CompactSweepTranslate" Storyboard.TargetProperty="X" From="-70" To="120" Duration="0:0:16" RepeatBehavior="Forever" />
+      <DoubleAnimation Storyboard.TargetName="CompactSweep" Storyboard.TargetProperty="Opacity" From="0" To=".12" Duration="0:0:8" AutoReverse="True" RepeatBehavior="Forever" />
     </Storyboard>
     <Style x:Key="WidgetCaptionButton" TargetType="Button" BasedOn="{StaticResource IconButton}">
       <Setter Property="Width" Value="36" /><Setter Property="Height" Value="36" /><Setter Property="Padding" Value="8" />
@@ -23,7 +28,7 @@
     <Border x:Name="ExpandedCard" Margin="8" CornerRadius="20" BorderBrush="{DynamicResource BoundaryBrush}" BorderThickness="1" Background="{DynamicResource CanvasRaisedBrush}">
       <Border.Effect><DropShadowEffect Color="#B0000618" BlurRadius="34" ShadowDepth="10" Opacity=".7" /></Border.Effect>
       <Grid ClipToBounds="True">
-        <Ellipse Width="460" Height="190" Fill="{DynamicResource AtmosphereBrush}" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="-170,-95,0,0" IsHitTestVisible="False" />
+        <Ellipse Width="460" Height="190" Fill="{DynamicResource AtmosphereBrush}" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="-170,-95,0,0" IsHitTestVisible="False"><Ellipse.RenderTransform><TranslateTransform x:Name="WidgetCurrentTranslate" /></Ellipse.RenderTransform></Ellipse>
         <Grid Margin="20">
           <Grid.RowDefinitions>
             <RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" />
@@ -75,9 +80,11 @@
       </Grid>
     </Border>
 
-    <Border x:Name="CompactCard" Width="104" Height="168" CornerRadius="18" HorizontalAlignment="Center" VerticalAlignment="Center" Background="{DynamicResource CanvasRaisedBrush}" BorderBrush="{DynamicResource CyanBrush}" BorderThickness="1.5" Visibility="Collapsed">
+    <Border x:Name="CompactCard" Width="104" Height="168" CornerRadius="18" HorizontalAlignment="Center" VerticalAlignment="Center" Background="{DynamicResource CanvasRaisedBrush}" BorderBrush="{DynamicResource CyanBrush}" BorderThickness="1.5" Visibility="Collapsed" ClipToBounds="True">
       <Border.Effect><DropShadowEffect Color="#B0000618" BlurRadius="28" ShadowDepth="8" Opacity=".7" /></Border.Effect>
-      <Grid Margin="8">
+      <Grid>
+        <Rectangle x:Name="CompactSweep" Width="24" Opacity="0" IsHitTestVisible="False" HorizontalAlignment="Left" RenderTransformOrigin=".5,.5"><Rectangle.Fill><LinearGradientBrush StartPoint="0,0" EndPoint="1,0"><GradientStop Color="#0068F2D0" /><GradientStop Color="#8068F2D0" Offset=".5" /><GradientStop Color="#0068F2D0" Offset="1" /></LinearGradientBrush></Rectangle.Fill><Rectangle.RenderTransform><TransformGroup><SkewTransform AngleX="-12" /><TranslateTransform x:Name="CompactSweepTranslate" /></TransformGroup></Rectangle.RenderTransform></Rectangle>
+        <Grid Margin="8">
         <Grid.RowDefinitions><RowDefinition Height="30" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
         <Viewbox Width="22" Height="22" HorizontalAlignment="Left" VerticalAlignment="Center"><Path Data="{StaticResource IconWaterline}" Stroke="{DynamicResource CyanBrush}" StrokeThickness="1.7" /></Viewbox>
         <Grid Grid.Row="1" Width="78" Height="78">
@@ -87,6 +94,7 @@
         <Button Grid.Row="2" Style="{StaticResource IconButton}" Click="Expand_Click" Height="34" HorizontalAlignment="Stretch" ToolTip="Expand widget" automation:AutomationProperties.Name="Expand widget">
           <Path Data="M4,13 L10,7 L16,13" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.6" Width="15" Height="15" Stretch="Uniform" />
         </Button>
+        </Grid>
       </Grid>
     </Border>
   </Grid>

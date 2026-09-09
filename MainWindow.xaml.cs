@@ -15,7 +15,9 @@ public partial class MainWindow : Window
     private readonly bool _enableUpdateChecks;
     private readonly ToggleButton[] _destinationButtons;
     private bool _allowClose;
+    private bool _ambientMotionRunning;
     private bool _focusLogOnLoad;
+    private double _nextReservoirResponse = 1;
     private string _selectedDestination = "Today";
 
     public MainWindow(MainViewModel viewModel, bool enableUpdateChecks = true)
@@ -28,6 +30,8 @@ public partial class MainWindow : Window
         SettingsView.InstallRequested += (_, _) => InstallRequested?.Invoke(this, EventArgs.Empty);
         WidgetView.OpenRequested += (_, _) => OpenWidgetRequested?.Invoke(this, EventArgs.Empty);
         _viewModel.PropertyChanged += ViewModel_PropertyChanged;
+        SystemParameters.StaticPropertyChanged += SystemParameters_StaticPropertyChanged;
+        IsVisibleChanged += (_, _) => UpdateMotionState();
         Loaded += OnLoaded;
     }
 
@@ -37,13 +41,14 @@ public partial class MainWindow : Window
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
         ApplyResponsiveLayout(ActualWidth);
-        if (SystemParameters.ClientAreaAnimation)
+        if (MotionPolicy.IsEnabled)
             ((Storyboard)Resources["ShellEntrance"]).Begin(this, true);
         else
         {
             ShellRoot.Opacity = 1;
             ShellTranslate.Y = 0;
         }
+        UpdateMotionState();
         if (_focusLogOnLoad) Log12Button.Focus();
         await SettingsView.InitializeUpdatesAsync(_enableUpdateChecks);
     }
@@ -51,10 +56,12 @@ public partial class MainWindow : Window
     private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName != nameof(MainViewModel.ReservoirFillHeight) || !IsLoaded) return;
-        UpdateReservoirFill(SystemParameters.ClientAreaAnimation);
+        var response = _nextReservoirResponse;
+        _nextReservoirResponse = 1;
+        UpdateReservoirFill(MotionPolicy.IsEnabled && IsVisible && WindowState != WindowState.Minimized, response);
     }
 
-    private void UpdateReservoirFill(bool animate)
+    private void UpdateReservoirFill(bool animate, double response = 1)
     {
         var reservoirFrame = (Border)((Grid)ReservoirFill.Parent).Parent;
         var target = Math.Max(0, reservoirFrame.Height - 4) * _viewModel.ProgressPercent / 100;
@@ -66,11 +73,62 @@ public partial class MainWindow : Window
         {
             From = previous,
             To = target,
-            Duration = TimeSpan.FromMilliseconds(240),
+            Duration = TimeSpan.FromMilliseconds(500),
             EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
             FillBehavior = FillBehavior.Stop
         };
         ReservoirFill.BeginAnimation(HeightProperty, animation, HandoffBehavior.SnapshotAndReplace);
+        ReservoirSurfaceScale.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimationUsingKeyFrames
+        {
+            KeyFrames =
+            {
+                new EasingDoubleKeyFrame(1, KeyTime.FromTimeSpan(TimeSpan.Zero)),
+                new EasingDoubleKeyFrame(1 + .34 * response, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(180))),
+                new EasingDoubleKeyFrame(1, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(1050)))
+            }
+        }, HandoffBehavior.SnapshotAndReplace);
+        ReservoirHighlightTranslate.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation
+        {
+            From = 70,
+            To = -Math.Max(70, target),
+            Duration = TimeSpan.FromMilliseconds(900),
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+        }, HandoffBehavior.SnapshotAndReplace);
+        ReservoirHighlight.BeginAnimation(OpacityProperty, new DoubleAnimationUsingKeyFrames
+        {
+            KeyFrames =
+            {
+                new DiscreteDoubleKeyFrame(0, KeyTime.FromTimeSpan(TimeSpan.Zero)),
+                new EasingDoubleKeyFrame(.28 * response, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(120))),
+                new EasingDoubleKeyFrame(0, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(900)))
+            }
+        }, HandoffBehavior.SnapshotAndReplace);
+        TotalValueText.BeginAnimation(OpacityProperty, new DoubleAnimation(.58, 1, TimeSpan.FromMilliseconds(190)), HandoffBehavior.SnapshotAndReplace);
+    }
+
+    private void SystemParameters_StaticPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(SystemParameters.ClientAreaAnimation) or nameof(SystemParameters.HighContrast))
+            UpdateMotionState();
+    }
+
+    private void UpdateMotionState()
+    {
+        if (!IsLoaded) return;
+        var shouldRun = MotionPolicy.IsEnabled && IsVisible && WindowState != WindowState.Minimized;
+        var ambient = (Storyboard)Resources["AmbientMotion"];
+        if (shouldRun && !_ambientMotionRunning)
+        {
+            ambient.Begin(this, true);
+            _ambientMotionRunning = true;
+        }
+        else if (!shouldRun && _ambientMotionRunning)
+        {
+            ambient.Remove(this);
+            AmbientCurrentTranslate.X = 0;
+            ReservoirWaveTranslate.X = 0;
+            _ambientMotionRunning = false;
+        }
     }
 
     private void Navigation_Click(object sender, RoutedEventArgs e)
@@ -150,18 +208,28 @@ public partial class MainWindow : Window
 
     private void SettingsMenu_Click(object sender, RoutedEventArgs e) => SelectDestination("Settings");
 
-    private void Add8_Click(object sender, RoutedEventArgs e) => _viewModel.AddDrink(8);
-    private void Add12_Click(object sender, RoutedEventArgs e) => _viewModel.AddDrink(12);
-    private void Add16_Click(object sender, RoutedEventArgs e) => _viewModel.AddDrink(16);
-    private void Undo_Click(object sender, RoutedEventArgs e) => _viewModel.UndoLastDrink();
+    private void Add8_Click(object sender, RoutedEventArgs e) => LogWater(8);
+    private void Add12_Click(object sender, RoutedEventArgs e) => LogWater(12);
+    private void Add16_Click(object sender, RoutedEventArgs e) => LogWater(16);
+    private void Undo_Click(object sender, RoutedEventArgs e)
+    {
+        _nextReservoirResponse = .55;
+        _viewModel.UndoLastDrink();
+    }
     private void Recover_Click(object sender, RoutedEventArgs e) => _viewModel.AcknowledgeRecovery();
 
     private void Custom_Click(object sender, RoutedEventArgs e)
     {
         var opener = sender as System.Windows.Controls.Button;
         var dialog = new AmountDialog { Owner = this };
-        if (dialog.ShowDialog() == true) _viewModel.AddDrink(dialog.AmountOz);
+        if (dialog.ShowDialog() == true) LogWater(dialog.AmountOz);
         opener?.Focus();
+    }
+
+    private void LogWater(double amount)
+    {
+        _nextReservoirResponse = 1;
+        _viewModel.AddDrink(amount);
     }
 
     private void Window_SizeChanged(object sender, SizeChangedEventArgs e) => ApplyResponsiveLayout(e.NewSize.Width);
@@ -265,6 +333,16 @@ public partial class MainWindow : Window
             case "high-contrast":
                 ThemeManager.ApplyHighContrastForSnapshot();
                 break;
+            case "reduced-motion":
+            case "widget-reduced-motion":
+            case "collapsed-reduced-motion":
+                MotionPolicy.ForceReducedForSnapshot();
+                break;
+            case "motion-today":
+            case "motion-widget":
+            case "motion-collapsed":
+            case "motion-log":
+                break;
             case "schedule-high-contrast":
                 ThemeManager.ApplyHighContrastForSnapshot();
                 SelectDestination("Schedule", true);
@@ -316,6 +394,7 @@ public partial class MainWindow : Window
     {
         if (!IsInitialized) return;
         MaximizeGlyph.Data = (Geometry)FindResource(WindowState == WindowState.Maximized ? "IconRestore" : "IconMaximize");
+        UpdateMotionState();
     }
 
     private void WindowClose_Click(object sender, RoutedEventArgs e) => Close();
@@ -333,6 +412,8 @@ public partial class MainWindow : Window
     public void AllowClose()
     {
         _allowClose = true;
+        ((Storyboard)Resources["AmbientMotion"]).Remove(this);
+        SystemParameters.StaticPropertyChanged -= SystemParameters_StaticPropertyChanged;
         _viewModel.PropertyChanged -= ViewModel_PropertyChanged;
         _viewModel.Dispose();
         Close();

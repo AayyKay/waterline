@@ -1,45 +1,78 @@
-using System.Media;
 using System.IO;
+using System.Media;
+using Waterline.Infrastructure;
 
 namespace Waterline;
 
 public static class SoundService
 {
-    public static void PlayLog() => Play([520, 760], 75, 300, .16);
-    public static void PlayReminder() => Play([620, 820, 1040], 140, 650, .2);
+    private static readonly object Gate = new();
+    private static SoundPlayer? _activePlayer;
+    private static Stream? _activeStream;
+    private static int _generation;
 
-    private static void Play(int[] frequencies, int spacingMs, int durationMs, double volume)
+    public static void PlayLog() => Play("pack://application:,,,/Assets/waterline-log.wav", WaterlineAudio.CreateLogCue, 270);
+    public static void PlayReminder() => Play("pack://application:,,,/Assets/waterline-reminder.wav", WaterlineAudio.CreateReminderCue, 660);
+
+    public static void Stop()
     {
-        _ = Task.Run(() =>
+        lock (Gate)
         {
-            try
+            _generation++;
+            _activePlayer?.Stop();
+            _activePlayer?.Dispose();
+            _activeStream?.Dispose();
+            _activePlayer = null;
+            _activeStream = null;
+        }
+    }
+
+    private static void Play(string resourceUri, Func<byte[]> fallback, int durationMilliseconds)
+    {
+        try
+        {
+            var resource = System.Windows.Application.GetResourceStream(new Uri(resourceUri));
+            var bytes = resource is null ? fallback() : ReadAll(resource.Stream);
+            lock (Gate)
             {
-                const int sampleRate = 44100;
-                var samples = sampleRate * durationMs / 1000;
-                using var memory = new MemoryStream();
-                using var writer = new BinaryWriter(memory);
-                writer.Write("RIFF"u8.ToArray()); writer.Write(36 + samples * 2); writer.Write("WAVEfmt "u8.ToArray());
-                writer.Write(16); writer.Write((short)1); writer.Write((short)1); writer.Write(sampleRate); writer.Write(sampleRate * 2);
-                writer.Write((short)2); writer.Write((short)16); writer.Write("data"u8.ToArray()); writer.Write(samples * 2);
-                for (var i = 0; i < samples; i++)
-                {
-                    var time = i / (double)sampleRate;
-                    var envelope = Math.Sin(Math.PI * Math.Clamp(i / (double)samples, 0, 1));
-                    var value = 0d;
-                    for (var note = 0; note < frequencies.Length; note++)
-                    {
-                        var noteStart = note * spacingMs / 1000d;
-                        var noteTime = time - noteStart;
-                        if (noteTime is >= 0 and <= .23)
-                            value += Math.Sin(2 * Math.PI * frequencies[note] * noteTime) * Math.Sin(Math.PI * noteTime / .23);
-                    }
-                    writer.Write((short)(short.MaxValue * volume * envelope * Math.Clamp(value, -1, 1)));
-                }
-                memory.Position = 0;
-                using var player = new SoundPlayer(memory);
-                player.PlaySync();
+                StopActive();
+                var generation = ++_generation;
+                _activeStream = new MemoryStream(bytes, writable: false);
+                _activePlayer = new SoundPlayer(_activeStream);
+                _activePlayer.Load();
+                _activePlayer.Play();
+                _ = ReleaseAfterAsync(generation, durationMilliseconds + 120);
             }
-            catch { }
-        });
+        }
+        catch { }
+    }
+
+    private static async Task ReleaseAfterAsync(int generation, int delayMilliseconds)
+    {
+        await Task.Delay(delayMilliseconds).ConfigureAwait(false);
+        lock (Gate)
+        {
+            if (generation != _generation) return;
+            StopActive();
+        }
+    }
+
+    private static byte[] ReadAll(Stream source)
+    {
+        using (source)
+        using (var memory = new MemoryStream())
+        {
+            source.CopyTo(memory);
+            return memory.ToArray();
+        }
+    }
+
+    private static void StopActive()
+    {
+        _activePlayer?.Stop();
+        _activePlayer?.Dispose();
+        _activeStream?.Dispose();
+        _activePlayer = null;
+        _activeStream = null;
     }
 }

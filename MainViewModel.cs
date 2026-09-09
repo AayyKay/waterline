@@ -13,7 +13,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private readonly IClock _clockProvider;
     private TimeZoneInfo _timeZone;
     private readonly bool _usesSystemTimeZone;
-    private readonly DispatcherTimer _clock = new() { Interval = TimeSpan.FromSeconds(1) };
+    private readonly DispatcherTimer _clock = new() { Interval = TimeSpan.FromSeconds(30) };
     private readonly DispatcherTimer _reminderTimer = new() { Interval = TimeSpan.FromSeconds(20) };
     private readonly WaterlineState _state;
     private DateTimeOffset _now;
@@ -306,6 +306,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             return false;
         }
         error = string.Empty;
+        if (!Settings.SoundsEnabled) SoundService.Stop();
         SetActivityMessage("Settings saved locally.", false);
         RefreshHistory();
         RefreshAll();
@@ -603,13 +604,21 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     private void AddFixture(DateOnly day, double amount, int hour, int minute)
     {
-        var local = day.ToDateTime(new TimeOnly(hour, minute), DateTimeKind.Unspecified);
-        _state.Drinks.Add(new DrinkEntry
+        var remaining = amount;
+        var part = 0;
+        while (remaining > 0)
         {
-            Id = $"snapshot-{day:yyyyMMdd}-{hour:00}{minute:00}-{amount:0.#}",
-            AmountOz = amount,
-            RecordedAt = new DateTimeOffset(local, _timeZone.GetUtcOffset(local))
-        });
+            var partAmount = Math.Min(64, remaining);
+            var local = day.ToDateTime(new TimeOnly(hour, minute), DateTimeKind.Unspecified).AddMinutes(part);
+            _state.Drinks.Add(new DrinkEntry
+            {
+                Id = $"snapshot-{day:yyyyMMdd}-{hour:00}{minute:00}-{part}-{partAmount:0.#}",
+                AmountOz = partAmount,
+                RecordedAt = new DateTimeOffset(local, _timeZone.GetUtcOffset(local))
+            });
+            remaining = Math.Round(remaining - partAmount, 1);
+            part++;
+        }
     }
 
     private void RefreshAll()
@@ -654,6 +663,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     {
         _clock.Stop();
         _reminderTimer.Stop();
+        SoundService.Stop();
         Configuration.Dispose();
     }
 }

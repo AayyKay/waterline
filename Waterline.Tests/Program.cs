@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text;
 using Waterline.Core;
 using Waterline.Infrastructure;
 
@@ -385,6 +386,19 @@ Test("rejects unsupported widget modes and invalid placement", () =>
     Equal(true, errors.Contains("Widget placement is invalid."));
 });
 
+Test("builds distinct bounded Waterline audio cues", () =>
+{
+    var log = WaterlineAudio.CreateLogCue();
+    var reminder = WaterlineAudio.CreateReminderCue();
+    Equal("RIFF", Encoding.ASCII.GetString(log, 0, 4));
+    Equal("WAVE", Encoding.ASCII.GetString(reminder, 8, 4));
+    Near(.27, WaveDuration(log), .002);
+    Near(.66, WaveDuration(reminder), .002);
+    Equal(true, WavePeak(log) is > 1200 and <= 9200);
+    Equal(true, WavePeak(reminder) is > 1200 and <= 9200);
+    Equal(false, log.SequenceEqual(reminder));
+});
+
 foreach (var test in tests)
 {
     try
@@ -420,6 +434,16 @@ static void Near(double expected, double actual, double tolerance = .001)
 {
     if (Math.Abs(expected - actual) > tolerance)
         throw new InvalidOperationException($"Expected {expected}, received {actual}.");
+}
+
+static double WaveDuration(byte[] wave) => BitConverter.ToInt32(wave, 40) / 2d / BitConverter.ToInt32(wave, 24);
+
+static int WavePeak(byte[] wave)
+{
+    var peak = 0;
+    for (var offset = 44; offset + 1 < wave.Length; offset += 2)
+        peak = Math.Max(peak, Math.Abs((int)BitConverter.ToInt16(wave, offset)));
+    return peak;
 }
 
 static DrinkEntry Drink(double amount, DateTimeOffset at) =>
