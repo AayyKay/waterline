@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
+        xmlns:local="clr-namespace:Waterline"
         Title="Waterline" Width="1280" Height="860" MinWidth="900" MinHeight="650"
         WindowStyle="None" ResizeMode="CanResize" WindowStartupLocation="CenterScreen"
         Background="{DynamicResource CanvasBrush}" Icon="pack://application:,,,/Assets/waterline-app.ico"
@@ -88,7 +89,10 @@
             </StackPanel>
           </Grid>
 
-          <Grid x:Name="PlaceholderView" Visibility="Collapsed"><Border Style="{StaticResource Card}" MaxWidth="680" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,60,0,0"><StackPanel><TextBlock x:Name="PlaceholderEyebrow" Text="NEXT PHASE" Style="{StaticResource MetadataText}" Foreground="{DynamicResource CyanBrush}" /><TextBlock x:Name="PlaceholderTitle" Text="Coming in a later phase" Style="{StaticResource PageTitleText}" Margin="0,7,0,0" /><TextBlock x:Name="PlaceholderBody" Text="This destination remains available in the approved shell and will be completed in its scheduled rebuild phase." Style="{StaticResource SecondaryText}" FontSize="14" TextWrapping="Wrap" Margin="0,8,0,0" /></StackPanel></Border></Grid>
+          <local:GoalsView x:Name="GoalsView" Visibility="Collapsed" />
+          <local:ScheduleView x:Name="ScheduleView" Visibility="Collapsed" />
+          <local:SettingsView x:Name="SettingsView" Visibility="Collapsed" />
+          <Grid x:Name="PlaceholderView" Visibility="Collapsed"><Border Style="{StaticResource Card}" MaxWidth="680" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,60,0,0"><StackPanel><TextBlock x:Name="PlaceholderEyebrow" Text="PHASE 6" Style="{StaticResource MetadataText}" Foreground="{DynamicResource CyanBrush}" /><TextBlock x:Name="PlaceholderTitle" Text="Widget opens separately" Style="{StaticResource PageTitleText}" Margin="0,7,0,0" /><TextBlock x:Name="PlaceholderBody" Text="The widget remains available while its product-specific rebuild is scheduled for Phase 6." Style="{StaticResource SecondaryText}" FontSize="14" TextWrapping="Wrap" Margin="0,8,0,0" /></StackPanel></Border></Grid>
         </Grid>
       </ScrollViewer>
     </Grid>

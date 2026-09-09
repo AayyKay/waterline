@@ -320,6 +320,36 @@ Test("legacy Electron discovery is read-only", () =>
     Equal(before, Directory.GetDirectories(temp.Path, "*", SearchOption.AllDirectories).Length);
 });
 
+Test("accepts only the version-matched installer from the official repository", () =>
+{
+    var version = new Version(2, 1, 0);
+    Equal(true, UpdateAssetPolicy.TryGetTrustedInstallerUri(
+        "https://github.com/AayyKay/waterline/releases/download/v2.1.0/Waterline-Setup-2.1.0.exe",
+        "Waterline-Setup-2.1.0.exe", version, out var uri));
+    Equal("github.com", uri!.Host);
+});
+
+Test("rejects update assets with the wrong host repository name or version", () =>
+{
+    var version = new Version(2, 1, 0);
+    Equal(false, UpdateAssetPolicy.TryGetTrustedInstallerUri(
+        "https://example.com/AayyKay/waterline/releases/download/v2.1.0/Waterline-Setup-2.1.0.exe",
+        "Waterline-Setup-2.1.0.exe", version, out _));
+    Equal(false, UpdateAssetPolicy.TryGetTrustedInstallerUri(
+        "https://github.com/someone/waterline/releases/download/v2.1.0/Waterline-Setup-2.1.0.exe",
+        "Waterline-Setup-2.1.0.exe", version, out _));
+    Equal(false, UpdateAssetPolicy.TryGetTrustedInstallerUri(
+        "https://github.com/AayyKay/waterline/releases/download/v2.1.0/Waterline-Setup-9.9.9.exe",
+        "Waterline-Setup-9.9.9.exe", version, out _));
+});
+
+Test("accepts only official Waterline release pages", () =>
+{
+    Equal(true, UpdateAssetPolicy.IsTrustedReleasePage("https://github.com/AayyKay/waterline/releases/tag/v2.1.0"));
+    Equal(false, UpdateAssetPolicy.IsTrustedReleasePage("https://github.com/another/waterline/releases/tag/v2.1.0"));
+    Equal(false, UpdateAssetPolicy.IsTrustedReleasePage("http://github.com/AayyKay/waterline/releases/latest"));
+});
+
 foreach (var test in tests)
 {
     try

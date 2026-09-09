@@ -1,21 +1,33 @@
 using System.Diagnostics;
-using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Net.Http;
 using System.Reflection;
 using System.Text.Json;
 using System.IO;
+using Waterline.Infrastructure;
 
 namespace Waterline;
 
-public sealed record ReleaseInfo(Version Version, string PageUrl, string? InstallerUrl);
+public sealed record ReleaseInfo(Version Version, string PageUrl, Uri? InstallerUri);
 
-public sealed class GitHubUpdateService
+public interface IUpdateService : IDisposable
+{
+    Version CurrentVersion { get; }
+    Task<ReleaseInfo?> CheckAsync(CancellationToken cancellationToken = default);
+    Task<string> DownloadAsync(ReleaseInfo release, IProgress<double>? progress = null, CancellationToken cancellationToken = default);
+    void LaunchInstaller(string installerPath);
+    void OpenReleasePage(string pageUrl);
+}
+
+public sealed class GitHubUpdateService : IUpdateService
 {
     private const string ReleasesApi = "https://api.github.com/repos/AayyKay/waterline/releases/latest";
-    private readonly HttpClient _client = new();
+    private readonly HttpClient _client;
 
-    public GitHubUpdateService()
+    public GitHubUpdateService(HttpMessageHandler? handler = null)
     {
+        _client = handler is null ? new HttpClient() : new HttpClient(handler);
+        _client.Timeout = TimeSpan.FromSeconds(20);
         _client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("Waterline", CurrentVersion.ToString()));
         _client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
     }
@@ -24,50 +36,84 @@ public sealed class GitHubUpdateService
 
     public async Task<ReleaseInfo?> CheckAsync(CancellationToken cancellationToken = default)
     {
-        using var response = await _client.GetAsync(ReleasesApi, cancellationToken);
+        using var response = await _client.GetAsync(ReleasesApi, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         response.EnsureSuccessStatusCode();
-        using var json = JsonDocument.Parse(await response.Content.ReadAsStreamAsync(cancellationToken));
+        await using var body = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var json = await JsonDocument.ParseAsync(body, cancellationToken: cancellationToken);
         var root = json.RootElement;
         var tag = root.GetProperty("tag_name").GetString()?.TrimStart('v');
         if (!Version.TryParse(tag, out var version)) return null;
-        var page = root.GetProperty("html_url").GetString() ?? "https://github.com/AayyKay/waterline/releases/latest";
-        string? installer = null;
-        foreach (var asset in root.GetProperty("assets").EnumerateArray())
+
+        var candidatePage = root.GetProperty("html_url").GetString();
+        var page = UpdateAssetPolicy.IsTrustedReleasePage(candidatePage)
+            ? candidatePage!
+            : "https://github.com/AayyKay/waterline/releases/latest";
+        Uri? installer = null;
+        if (root.TryGetProperty("assets", out var assets))
         {
-            var name = asset.GetProperty("name").GetString();
-            if (name?.EndsWith("-Setup.exe", StringComparison.OrdinalIgnoreCase) == true ||
-                name?.StartsWith("Waterline-Setup-", StringComparison.OrdinalIgnoreCase) == true)
+            foreach (var asset in assets.EnumerateArray())
             {
-                installer = asset.GetProperty("browser_download_url").GetString();
-                break;
+                var name = asset.GetProperty("name").GetString();
+                var url = asset.GetProperty("browser_download_url").GetString();
+                if (UpdateAssetPolicy.TryGetTrustedInstallerUri(url, name, version, out installer)) break;
             }
         }
         return new ReleaseInfo(version, page, installer);
     }
 
-    public async Task DownloadAndInstallAsync(ReleaseInfo release, IProgress<double>? progress = null, CancellationToken cancellationToken = default)
+    public async Task<string> DownloadAsync(
+        ReleaseInfo release,
+        IProgress<double>? progress = null,
+        CancellationToken cancellationToken = default)
     {
-        if (release.InstallerUrl is null)
+        if (release.InstallerUri is null) throw new InvalidOperationException("This release does not contain a trusted Waterline installer.");
+        var destination = Path.Combine(Path.GetTempPath(), $"Waterline-Setup-{release.Version}-{Guid.NewGuid():N}.exe");
+        try
         {
-            Process.Start(new ProcessStartInfo(release.PageUrl) { UseShellExecute = true });
-            return;
+            using var response = await _client.GetAsync(release.InstallerUri, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            response.EnsureSuccessStatusCode();
+            var total = response.Content.Headers.ContentLength;
+            await using var input = await response.Content.ReadAsStreamAsync(cancellationToken);
+            await using (var output = new FileStream(destination, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81920, FileOptions.Asynchronous | FileOptions.WriteThrough))
+            {
+                var buffer = new byte[81920];
+                long readTotal = 0;
+                int read;
+                while ((read = await input.ReadAsync(buffer, cancellationToken)) > 0)
+                {
+                    await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
+                    readTotal += read;
+                    if (total is > 0) progress?.Report(readTotal * 100d / total.Value);
+                }
+                await output.FlushAsync(cancellationToken);
+                output.Flush(true);
+            }
+            return destination;
         }
-
-        var destination = Path.Combine(Path.GetTempPath(), $"Waterline-Setup-{release.Version}.exe");
-        using var response = await _client.GetAsync(release.InstallerUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-        response.EnsureSuccessStatusCode();
-        var total = response.Content.Headers.ContentLength;
-        await using var input = await response.Content.ReadAsStreamAsync(cancellationToken);
-        await using var output = File.Create(destination);
-        var buffer = new byte[81920];
-        long readTotal = 0;
-        int read;
-        while ((read = await input.ReadAsync(buffer, cancellationToken)) > 0)
+        catch
         {
-            await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
-            readTotal += read;
-            if (total is > 0) progress?.Report(readTotal * 100d / total.Value);
+            try { if (File.Exists(destination)) File.Delete(destination); } catch { }
+            throw;
         }
-        Process.Start(new ProcessStartInfo(destination) { UseShellExecute = true });
     }
+
+    public void LaunchInstaller(string installerPath)
+    {
+        var fullPath = Path.GetFullPath(installerPath);
+        var tempRoot = Path.GetFullPath(Path.GetTempPath());
+        if (!fullPath.StartsWith(tempRoot, StringComparison.OrdinalIgnoreCase) ||
+            !Path.GetFileName(fullPath).StartsWith("Waterline-Setup-", StringComparison.OrdinalIgnoreCase) ||
+            !fullPath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ||
+            !File.Exists(fullPath))
+            throw new InvalidOperationException("The downloaded installer path is not trusted.");
+        Process.Start(new ProcessStartInfo(fullPath) { UseShellExecute = true });
+    }
+
+    public void OpenReleasePage(string pageUrl)
+    {
+        if (!UpdateAssetPolicy.IsTrustedReleasePage(pageUrl)) throw new InvalidOperationException("The release page is not trusted.");
+        Process.Start(new ProcessStartInfo(pageUrl) { UseShellExecute = true });
+    }
+
+    public void Dispose() => _client.Dispose();
 }

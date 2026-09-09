@@ -37,6 +37,7 @@ public partial class App : System.Windows.Application
         var store = new AppStateStore(statePath);
         var viewModel = new MainViewModel(store);
         _mainWindow = new MainWindow(viewModel, enableUpdateChecks: !isSnapshot);
+        _mainWindow.InstallRequested += (_, _) => ExitApplication();
         var snapshotIndex = Array.IndexOf(e.Args, "--snapshot");
         if (snapshotIndex >= 0 && snapshotIndex + 1 < e.Args.Length)
         {
@@ -63,6 +64,13 @@ public partial class App : System.Windows.Application
             var dialog = new AmountDialog { Owner = _mainWindow };
             dialog.Show();
             if (mode == "dialog-invalid") dialog.PrepareInvalidForSnapshot();
+            target = dialog;
+        }
+        if (mode == "unsaved")
+        {
+            _mainWindow!.Hide();
+            var dialog = new UnsavedChangesDialog("Schedule") { Owner = _mainWindow };
+            dialog.Show();
             target = dialog;
         }
         if (mode is "widget" or "collapsed")

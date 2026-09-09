@@ -1,6 +1,6 @@
 # Quality plan and rebuild phases
 
-Status: Phases 0 through 4 approved
+Status: Phases 0 through 4 approved; Phase 5 implementation candidate awaiting owner approval
 
 ## Definition of done
 

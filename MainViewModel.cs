@@ -45,6 +45,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         RecentEntries = new ObservableCollection<DrinkEntryView>();
         HistoryDays = new ObservableCollection<HistoryDayView>();
         HistoryEntries = new ObservableCollection<DrinkEntryView>();
+        Configuration = new ConfigurationViewModel(this, new GitHubUpdateService(), new DiagnosticLog(store.FilePath));
         RefreshDrinkViews();
         RefreshHistory();
         _clock.Tick += (_, _) =>
@@ -64,6 +65,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public ObservableCollection<DrinkEntryView> RecentEntries { get; }
     public ObservableCollection<HistoryDayView> HistoryDays { get; }
     public ObservableCollection<DrinkEntryView> HistoryEntries { get; }
+    public ConfigurationViewModel Configuration { get; }
     public WaterlineSettings Settings => _state.Settings;
     public StateLoadStatus LoadStatus => _loadStatus;
     public string PersistenceMessage => _persistenceMessage;
@@ -173,6 +175,94 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         ? "Choose a day to see its details."
         : $"{_selectedHistoryDay.TotalLabel} · {_selectedHistoryDay.StatusLabel}";
     public bool HasSelectedHistoryEntries => HistoryEntries.Count > 0;
+    public string StateFilePath => _store.FilePath;
+    public string RecoveryStatusLabel => _loadStatus switch
+    {
+        StateLoadStatus.RecoveredFromBackup => "Recovered backup loaded · saving requires confirmation",
+        StateLoadStatus.Unrecoverable => "Local data needs attention · existing files are unchanged",
+        StateLoadStatus.Migrated => "Legacy Waterline data loaded safely",
+        _ => "Local data is healthy"
+    };
+
+    public WaterlineSettings CopySettings() => new()
+    {
+        DailyGoalOz = Settings.DailyGoalOz,
+        ReminderIntervalMinutes = Settings.ReminderIntervalMinutes,
+        WorkdayStart = Settings.WorkdayStart,
+        WorkdayEnd = Settings.WorkdayEnd,
+        RemindersEnabled = Settings.RemindersEnabled,
+        SoundsEnabled = Settings.SoundsEnabled,
+        ReminderDays = [.. Settings.ReminderDays]
+    };
+
+    public string CurrentWidgetMode => _state.Desktop.WidgetMode;
+
+    public string PreviewReminder(WaterlineSettings draft)
+    {
+        var plan = ReminderScheduler.GetPlan(
+            _now, draft, TotalOz, TodayEntries().MaxBy(entry => entry.RecordedAt)?.RecordedAt,
+            _state.Runtime.LastNotificationAt, _timeZone);
+        if (!draft.RemindersEnabled) return "Reminders are off. The schedule will be saved without notifications.";
+        if (plan.DueAt is not { } due) return "No reminder is eligible in the current schedule.";
+        var local = TimeZoneInfo.ConvertTime(due, _timeZone);
+        return plan.IsActive
+            ? $"Next eligible reminder: {local:dddd} at {local:t}."
+            : $"Schedule resumes {local:dddd} at {local:t}.";
+    }
+
+    public bool TryApplySchedule(WaterlineSettings draft, out string error)
+    {
+        var previous = CopySettings();
+        Settings.RemindersEnabled = draft.RemindersEnabled;
+        Settings.ReminderIntervalMinutes = draft.ReminderIntervalMinutes;
+        Settings.WorkdayStart = draft.WorkdayStart;
+        Settings.WorkdayEnd = draft.WorkdayEnd;
+        Settings.ReminderDays = [.. draft.ReminderDays];
+        if (!Persist())
+        {
+            RestoreSettings(previous);
+            error = PersistenceMessage;
+            RefreshAll();
+            return false;
+        }
+        error = string.Empty;
+        SetActivityMessage("Reminder schedule saved locally.", false);
+        RefreshAll();
+        return true;
+    }
+
+    public bool TryApplyPreferences(double dailyGoalOz, bool soundsEnabled, string widgetMode, out string error)
+    {
+        var previous = CopySettings();
+        var previousMode = _state.Desktop.WidgetMode;
+        Settings.DailyGoalOz = Math.Round(dailyGoalOz, 1);
+        Settings.SoundsEnabled = soundsEnabled;
+        _state.Desktop.WidgetMode = widgetMode;
+        if (!Persist())
+        {
+            RestoreSettings(previous);
+            _state.Desktop.WidgetMode = previousMode;
+            error = PersistenceMessage;
+            RefreshAll();
+            return false;
+        }
+        error = string.Empty;
+        SetActivityMessage("Settings saved locally.", false);
+        RefreshHistory();
+        RefreshAll();
+        return true;
+    }
+
+    private void RestoreSettings(WaterlineSettings previous)
+    {
+        Settings.DailyGoalOz = previous.DailyGoalOz;
+        Settings.ReminderIntervalMinutes = previous.ReminderIntervalMinutes;
+        Settings.WorkdayStart = previous.WorkdayStart;
+        Settings.WorkdayEnd = previous.WorkdayEnd;
+        Settings.RemindersEnabled = previous.RemindersEnabled;
+        Settings.SoundsEnabled = previous.SoundsEnabled;
+        Settings.ReminderDays = [.. previous.ReminderDays];
+    }
 
     public void AddDrink(double amountOz)
     {
@@ -299,6 +389,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         _persistenceMessage = message;
         OnPropertyChanged(nameof(PersistenceMessage));
         OnPropertyChanged(nameof(HasPersistenceIssue));
+        OnPropertyChanged(nameof(RecoveryStatusLabel));
     }
 
     private void SetActivityMessage(string message, bool isError)
@@ -491,5 +582,6 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     {
         _clock.Stop();
         _reminderTimer.Stop();
+        Configuration.Dispose();
     }
 }

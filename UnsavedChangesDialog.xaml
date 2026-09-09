@@ -1,0 +1,22 @@
+<Window x:Class="Waterline.UnsavedChangesDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
+        Title="Unsaved changes" Width="470" Height="280" ResizeMode="NoResize"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Icon="pack://application:,,,/Assets/waterline-app.ico">
+  <Border Background="{DynamicResource SurfaceRaisedBrush}" BorderBrush="{DynamicResource BoundaryBrush}" BorderThickness="1" CornerRadius="16" KeyboardNavigation.TabNavigation="Cycle">
+    <Grid>
+      <Grid.RowDefinitions><RowDefinition Height="48" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+      <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,0,1" CornerRadius="16,16,0,0">
+        <Grid Margin="16,0,8,0"><StackPanel Orientation="Horizontal" VerticalAlignment="Center"><Viewbox Width="20" Height="20"><Path Data="{StaticResource IconWarning}" Stroke="{DynamicResource WarningBrush}" StrokeThickness="1.6" /></Viewbox><TextBlock Text="Unsaved changes" FontWeight="SemiBold" Margin="9,0,0,0" /></StackPanel><Button Style="{StaticResource IconButton}" HorizontalAlignment="Right" IsCancel="True" Click="KeepEditing_Click" ToolTip="Keep editing" automation:AutomationProperties.Name="Close and keep editing"><Path Data="{StaticResource IconClose}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.7" Width="16" Height="16" Stretch="Uniform" /></Button></Grid>
+      </Border>
+      <StackPanel Grid.Row="1" Margin="24">
+        <TextBlock x:Name="PromptTitle" Text="Save your changes?" Style="{StaticResource SectionTitleText}" />
+        <TextBlock x:Name="PromptBody" Text="You have changes that have not been saved on this PC." Style="{StaticResource SecondaryText}" FontSize="14" TextWrapping="Wrap" Margin="0,6,0,22" />
+        <Grid><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><Button Grid.Column="1" Style="{StaticResource QuietButton}" Content="Keep editing" Click="KeepEditing_Click" Margin="0,0,8,0" /><Button Grid.Column="2" Content="Discard" Click="Discard_Click" Margin="0,0,8,0" /><Button Grid.Column="3" Style="{StaticResource PrimaryButton}" Content="Save" Click="Save_Click" IsDefault="True" /></Grid>
+      </StackPanel>
+    </Grid>
+  </Border>
+</Window>

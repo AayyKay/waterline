@@ -12,6 +12,7 @@ public partial class MainWindow : Window
 {
     private const double CompactNavigationWidth = 1040;
     private readonly MainViewModel _viewModel;
+    private readonly bool _enableUpdateChecks;
     private readonly ToggleButton[] _destinationButtons;
     private bool _allowClose;
     private bool _focusLogOnLoad;
@@ -21,13 +22,17 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         _viewModel = viewModel;
+        _enableUpdateChecks = enableUpdateChecks;
         DataContext = viewModel;
         _destinationButtons = [TodayNav, InsightsNav, GoalsNav, ScheduleNav, WidgetNav, SettingsNav];
+        SettingsView.InstallRequested += (_, _) => InstallRequested?.Invoke(this, EventArgs.Empty);
         _viewModel.PropertyChanged += ViewModel_PropertyChanged;
         Loaded += OnLoaded;
     }
 
-    private void OnLoaded(object sender, RoutedEventArgs e)
+    public event EventHandler? InstallRequested;
+
+    private async void OnLoaded(object sender, RoutedEventArgs e)
     {
         ApplyResponsiveLayout(ActualWidth);
         if (SystemParameters.ClientAreaAnimation)
@@ -38,6 +43,7 @@ public partial class MainWindow : Window
             ShellTranslate.Y = 0;
         }
         if (_focusLogOnLoad) Log12Button.Focus();
+        await SettingsView.InitializeUpdatesAsync(_enableUpdateChecks);
     }
 
     private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -68,13 +74,30 @@ public partial class MainWindow : Window
     private void Navigation_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not ToggleButton button || button.Tag is not string destination) return;
-        SelectDestination(destination);
+        if (!SelectDestination(destination)) return;
         if (destination == "Widget") WidgetWindow.ShowOrActivate(_viewModel);
     }
 
-    private void SelectDestination(string destination)
+    private bool SelectDestination(string destination, bool skipPrompt = false)
     {
+        if (destination == _selectedDestination)
+        {
+            ApplyDestinationSelection(destination);
+            return true;
+        }
+        if (!skipPrompt && !ConfirmNavigation())
+        {
+            ApplyDestinationSelection(_selectedDestination);
+            return false;
+        }
         _selectedDestination = destination;
+        ApplyDestinationSelection(destination);
+        MainScroll.ScrollToTop();
+        return true;
+    }
+
+    private void ApplyDestinationSelection(string destination)
+    {
         foreach (var button in _destinationButtons)
         {
             var selected = Equals(button.Tag, destination);
@@ -84,13 +107,30 @@ public partial class MainWindow : Window
         MoreNav.IsChecked = destination is "Widget" or "Settings" && MoreNav.Visibility == Visibility.Visible;
         TodayView.Visibility = destination == "Today" ? Visibility.Visible : Visibility.Collapsed;
         InsightsView.Visibility = destination == "Insights" ? Visibility.Visible : Visibility.Collapsed;
-        PlaceholderView.Visibility = destination is "Today" or "Insights" ? Visibility.Collapsed : Visibility.Visible;
-        if (PlaceholderView.Visibility == Visibility.Visible)
+        GoalsView.Visibility = destination == "Goals" ? Visibility.Visible : Visibility.Collapsed;
+        ScheduleView.Visibility = destination == "Schedule" ? Visibility.Visible : Visibility.Collapsed;
+        SettingsView.Visibility = destination == "Settings" ? Visibility.Visible : Visibility.Collapsed;
+        PlaceholderView.Visibility = destination == "Widget" ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private bool ConfirmNavigation()
+    {
+        var configuration = _viewModel.Configuration;
+        var hasChanges = _selectedDestination == "Schedule"
+            ? configuration.HasScheduleChanges
+            : _selectedDestination is "Goals" or "Settings" && configuration.HasSettingsChanges;
+        if (!hasChanges) return true;
+
+        var dialog = new UnsavedChangesDialog(_selectedDestination) { Owner = this };
+        if (dialog.ShowDialog() != true) return false;
+        if (dialog.Choice == UnsavedChoice.Discard)
         {
-            PlaceholderEyebrow.Text = destination is "Goals" ? "PHASE 5" : destination is "Schedule" or "Settings" ? "PHASE 5" : "PHASE 6";
-            PlaceholderTitle.Text = destination == "Widget" ? "Widget opens separately" : $"{destination} is scheduled next";
+            if (_selectedDestination == "Schedule") configuration.CancelSchedule(); else configuration.CancelSettings();
+            return true;
         }
-        MainScroll.ScrollToTop();
+        if (dialog.Choice == UnsavedChoice.Save)
+            return _selectedDestination == "Schedule" ? configuration.SaveSchedule() : configuration.SaveSettings();
+        return false;
     }
 
     private void More_Click(object sender, RoutedEventArgs e)
@@ -102,7 +142,7 @@ public partial class MainWindow : Window
 
     private void WidgetMenu_Click(object sender, RoutedEventArgs e)
     {
-        SelectDestination("Widget");
+        if (!SelectDestination("Widget")) return;
         WidgetWindow.ShowOrActivate(_viewModel);
     }
 
@@ -188,23 +228,34 @@ public partial class MainWindow : Window
             _ => null
         };
         if (destination is null) return;
-        SelectDestination(destination);
+        if (!SelectDestination(destination)) return;
         if (destination == "Widget") WidgetWindow.ShowOrActivate(_viewModel);
         e.Handled = true;
     }
 
     private void Window_Activated(object? sender, EventArgs e) => _viewModel.RefreshFromSystemClock();
 
-    public void ShowSettingsForSnapshot() => SelectDestination("Settings");
+    public void ShowSettingsForSnapshot() => SelectDestination("Settings", true);
 
     public void PrepareForSnapshot(string mode)
     {
         _viewModel.PrepareSnapshotFixture(mode);
+        _viewModel.Configuration.PrepareSnapshot(mode);
         switch (mode)
         {
             case "compact":
                 Width = MinWidth;
                 Height = MinHeight;
+                break;
+            case "schedule-compact":
+                Width = MinWidth;
+                Height = MinHeight;
+                SelectDestination("Schedule", true);
+                break;
+            case "settings-compact":
+                Width = MinWidth;
+                Height = MinHeight;
+                SelectDestination("Settings", true);
                 break;
             case "focus":
                 _focusLogOnLoad = true;
@@ -212,8 +263,34 @@ public partial class MainWindow : Window
             case "high-contrast":
                 ThemeManager.ApplyHighContrastForSnapshot();
                 break;
+            case "schedule-high-contrast":
+                ThemeManager.ApplyHighContrastForSnapshot();
+                SelectDestination("Schedule", true);
+                break;
+            case "settings-high-contrast":
+                ThemeManager.ApplyHighContrastForSnapshot();
+                SelectDestination("Settings", true);
+                break;
             case "history":
-                SelectDestination("Insights");
+                SelectDestination("Insights", true);
+                break;
+            case "goals":
+                SelectDestination("Goals", true);
+                break;
+            case "schedule":
+            case "schedule-dirty":
+            case "schedule-invalid":
+            case "unsaved":
+                SelectDestination("Schedule", true);
+                break;
+            case "settings":
+            case "settings-dirty":
+            case "update-checking":
+            case "update-available":
+            case "update-downloading":
+            case "update-ready":
+            case "update-failed":
+                SelectDestination("Settings", true);
                 break;
         }
     }
