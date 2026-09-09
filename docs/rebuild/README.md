@@ -1,6 +1,6 @@
 # Waterline rebuild charter
 
-Status: Phase 0 approved
+Status: Phases 0 through 3 approved
 
 Baseline: `main` at `0a266ba` (`v2.0.1`)
 Target: native .NET 8 WPF application for Windows 10 and Windows 11
@@ -63,4 +63,4 @@ The selected visual direction and implementation rules are documented in:
 - [Design system](design/design-system.md)
 - [Responsive and state specification](design/responsive-and-states.md)
 
-Earlier directions remain archived in the design folder as decision history. They are not implementation references.
+Only the selected direction remains in the design folder as an implementation reference. Earlier explorations were removed after selection.

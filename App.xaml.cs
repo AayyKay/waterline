@@ -17,6 +17,7 @@ public partial class App : System.Windows.Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        ThemeManager.Initialize();
         var isSnapshot = Array.IndexOf(e.Args, "--snapshot") >= 0;
         var mutexName = isSnapshot ? $"Waterline.Native.Windows.Snapshot.{Environment.ProcessId}" : "Waterline.Native.Windows.SingleInstance";
         _singleInstanceMutex = new Mutex(true, mutexName, out var createdNew);
@@ -39,8 +40,10 @@ public partial class App : System.Windows.Application
         var snapshotIndex = Array.IndexOf(e.Args, "--snapshot");
         if (snapshotIndex >= 0 && snapshotIndex + 1 < e.Args.Length)
         {
+            var mode = snapshotIndex + 2 < e.Args.Length ? e.Args[snapshotIndex + 2] : "main";
+            _mainWindow.PrepareForSnapshot(mode);
             _mainWindow.Show();
-            _ = CaptureSnapshotAsync(viewModel, e.Args[snapshotIndex + 1], snapshotIndex + 2 < e.Args.Length ? e.Args[snapshotIndex + 2] : "main");
+            _ = CaptureSnapshotAsync(viewModel, e.Args[snapshotIndex + 1], mode);
             return;
         }
         _tray = new TrayService(viewModel, ShowMainWindow, ExitApplication);
@@ -54,6 +57,14 @@ public partial class App : System.Windows.Application
     {
         Window target = _mainWindow!;
         if (mode == "settings") _mainWindow!.ShowSettingsForSnapshot();
+        if (mode is "dialog" or "dialog-invalid")
+        {
+            _mainWindow!.Hide();
+            var dialog = new AmountDialog { Owner = _mainWindow };
+            dialog.Show();
+            if (mode == "dialog-invalid") dialog.PrepareInvalidForSnapshot();
+            target = dialog;
+        }
         if (mode is "widget" or "collapsed")
         {
             _mainWindow!.Hide();

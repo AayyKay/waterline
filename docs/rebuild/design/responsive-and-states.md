@@ -1,6 +1,6 @@
 # Phase 1 responsive and state specification
 
-Status: final draft for Phase 1 approval
+Status: approved
 
 ## Window classes
 

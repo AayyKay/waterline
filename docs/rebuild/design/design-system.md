@@ -1,6 +1,6 @@
 # Phase 1 design system
 
-Status: final draft for Phase 1 approval
+Status: approved
 
 This system translates the selected Direction D2 into deterministic, native WPF rules. Generated references communicate intent; the values below govern implementation.
 
