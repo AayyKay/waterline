@@ -11,6 +11,7 @@
     <Authors>Waterline</Authors>
     <Product>Waterline</Product>
     <Description>A native Windows hydration tracker.</Description>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>public\icons\waterline-app.ico</ApplicationIcon>
     <AssemblyVersion>2.0.1.0</AssemblyVersion>
     <FileVersion>2.0.1.0</FileVersion>
@@ -19,8 +20,11 @@
   <ItemGroup>
     <Resource Include="public\icons\waterline-app.png" Link="Assets\waterline-app.png" />
     <Resource Include="public\icons\waterline-app.ico" Link="Assets\waterline-app.ico" />
+    <Resource Include="public\icons\waterline-tray.ico" Link="Assets\waterline-tray.ico" />
+    <Resource Include="public\icons\waterline-tray.png" Link="Assets\waterline-tray.png" />
     <Compile Remove="Waterline.Tests\**\*.cs" />
     <Compile Remove="src\**\*.cs" />
+    <Compile Remove="tools\**\*.cs" />
     <None Remove="Waterline.Tests\**\*" />
   </ItemGroup>
   <ItemGroup>

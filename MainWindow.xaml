@@ -92,7 +92,7 @@
           <local:GoalsView x:Name="GoalsView" Visibility="Collapsed" />
           <local:ScheduleView x:Name="ScheduleView" Visibility="Collapsed" />
           <local:SettingsView x:Name="SettingsView" Visibility="Collapsed" />
-          <Grid x:Name="PlaceholderView" Visibility="Collapsed"><Border Style="{StaticResource Card}" MaxWidth="680" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,60,0,0"><StackPanel><TextBlock x:Name="PlaceholderEyebrow" Text="PHASE 6" Style="{StaticResource MetadataText}" Foreground="{DynamicResource CyanBrush}" /><TextBlock x:Name="PlaceholderTitle" Text="Widget opens separately" Style="{StaticResource PageTitleText}" Margin="0,7,0,0" /><TextBlock x:Name="PlaceholderBody" Text="The widget remains available while its product-specific rebuild is scheduled for Phase 6." Style="{StaticResource SecondaryText}" FontSize="14" TextWrapping="Wrap" Margin="0,8,0,0" /></StackPanel></Border></Grid>
+          <local:WidgetView x:Name="WidgetView" Visibility="Collapsed" />
         </Grid>
       </ScrollViewer>
     </Grid>

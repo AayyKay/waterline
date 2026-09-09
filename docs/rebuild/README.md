@@ -1,6 +1,6 @@
 # Waterline rebuild charter
 
-Status: Phases 0 through 4 approved; Phase 5 implementation candidate awaiting owner approval
+Status: Phases 0 through 6 approved
 
 Baseline: `main` at `0a266ba` (`v2.0.1`)
 Target: native .NET 8 WPF application for Windows 10 and Windows 11

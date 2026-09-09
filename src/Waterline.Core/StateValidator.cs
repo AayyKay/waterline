@@ -48,6 +48,18 @@ public static class StateValidator
             }
         }
         if (state.Desktop is null) errors.Add("Desktop state is required.");
+        else
+        {
+            if (state.Desktop.WidgetMode is not "expanded" and not "compact")
+                errors.Add("Widget mode is not supported.");
+            if (state.Desktop.WidgetPlacement is { } placement &&
+                (!double.IsFinite(placement.AnchorX) || !double.IsFinite(placement.AnchorY) ||
+                 !double.IsFinite(placement.Width) || !double.IsFinite(placement.Height) ||
+                 !double.IsFinite(placement.DpiScale) ||
+                 placement.AnchorX is < 0 or > 1 || placement.AnchorY is < 0 or > 1 ||
+                 placement.Width <= 0 || placement.Height <= 0 || placement.DpiScale <= 0))
+                errors.Add("Widget placement is invalid.");
+        }
         if (state.Runtime is null) errors.Add("Runtime state is required.");
         return errors;
     }

@@ -1,7 +1,9 @@
 using System.Diagnostics;
 using System.IO;
+using System.Security.Principal;
 using System.Threading;
 using System.Windows;
+using Microsoft.Win32;
 using Waterline.Infrastructure;
 
 namespace Waterline;
@@ -13,22 +15,26 @@ public partial class App : System.Windows.Application
     private CancellationTokenSource? _instanceListenerCancellation;
     private TrayService? _tray;
     private MainWindow? _mainWindow;
+    private MainViewModel? _viewModel;
+    private bool _exiting;
 
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
         ThemeManager.Initialize();
         var isSnapshot = Array.IndexOf(e.Args, "--snapshot") >= 0;
-        var mutexName = isSnapshot ? $"Waterline.Native.Windows.Snapshot.{Environment.ProcessId}" : "Waterline.Native.Windows.SingleInstance";
+        var userScope = WindowsIdentity.GetCurrent().User?.Value?.Replace('-', '.') ?? Environment.UserName;
+        var mutexName = isSnapshot ? $"Waterline.Native.Windows.Snapshot.{Environment.ProcessId}" : $"Local\\Waterline.Native.SingleInstance.{userScope}";
+        var activationName = isSnapshot ? $"Waterline.Native.Windows.SnapshotShow.{Environment.ProcessId}" : $"Local\\Waterline.Native.ShowMain.{userScope}";
         _singleInstanceMutex = new Mutex(true, mutexName, out var createdNew);
         if (!createdNew)
         {
-            try { EventWaitHandle.OpenExisting("Waterline.Native.Windows.ShowMain").Set(); } catch { }
+            try { EventWaitHandle.OpenExisting(activationName).Set(); } catch { }
             Current.Shutdown();
             return;
         }
 
-        _showWindowEvent = new EventWaitHandle(false, EventResetMode.AutoReset, isSnapshot ? $"Waterline.Native.Windows.SnapshotShow.{Environment.ProcessId}" : "Waterline.Native.Windows.ShowMain");
+        _showWindowEvent = new EventWaitHandle(false, EventResetMode.AutoReset, activationName);
         _instanceListenerCancellation = new CancellationTokenSource();
 
         var statePath = isSnapshot
@@ -36,8 +42,10 @@ public partial class App : System.Windows.Application
             : null;
         var store = new AppStateStore(statePath);
         var viewModel = new MainViewModel(store);
+        _viewModel = viewModel;
         _mainWindow = new MainWindow(viewModel, enableUpdateChecks: !isSnapshot);
         _mainWindow.InstallRequested += (_, _) => ExitApplication();
+        _mainWindow.OpenWidgetRequested += (_, _) => ShowWidget();
         var snapshotIndex = Array.IndexOf(e.Args, "--snapshot");
         if (snapshotIndex >= 0 && snapshotIndex + 1 < e.Args.Length)
         {
@@ -47,10 +55,12 @@ public partial class App : System.Windows.Application
             _ = CaptureSnapshotAsync(viewModel, e.Args[snapshotIndex + 1], mode);
             return;
         }
-        _tray = new TrayService(viewModel, ShowMainWindow, ExitApplication);
+        _tray = new TrayService(viewModel, ShowMainWindow, ShowWidget, ExitApplication);
         viewModel.NotificationRequested += (_, notification) =>
             _tray.ShowNotification(notification.Title, notification.Message);
         _mainWindow.Show();
+        SystemEvents.PowerModeChanged += SystemEvents_PowerModeChanged;
+        SystemEvents.TimeChanged += SystemEvents_TimeChanged;
         _ = ListenForSecondInstanceAsync(_instanceListenerCancellation.Token);
     }
 
@@ -73,12 +83,12 @@ public partial class App : System.Windows.Application
             dialog.Show();
             target = dialog;
         }
-        if (mode is "widget" or "collapsed")
+        if (mode is "widget" or "collapsed" or "widget-high-contrast" or "collapsed-high-contrast")
         {
             _mainWindow!.Hide();
-            var widget = new WidgetWindow(viewModel);
+            var widget = new WidgetWindow(viewModel, ShowMainWindow);
             widget.Show();
-            if (mode == "collapsed") widget.SetCollapsedForSnapshot();
+            if (mode is "collapsed" or "collapsed-high-contrast") widget.SetCollapsedForSnapshot();
             target = widget;
         }
         await Task.Delay(700);
@@ -91,24 +101,46 @@ public partial class App : System.Windows.Application
     private async Task ListenForSecondInstanceAsync(CancellationToken cancellationToken)
     {
         if (_showWindowEvent is null) return;
-        while (!cancellationToken.IsCancellationRequested)
+        try
         {
-            await Task.Run(() => _showWindowEvent.WaitOne(), cancellationToken);
-            if (!cancellationToken.IsCancellationRequested)
-                await Dispatcher.InvokeAsync(ShowMainWindow);
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                await Task.Run(() => _showWindowEvent.WaitOne(), cancellationToken);
+                if (!cancellationToken.IsCancellationRequested)
+                    await Dispatcher.InvokeAsync(ShowMainWindow);
+            }
         }
+        catch (OperationCanceledException) { }
     }
 
     private void ShowMainWindow()
     {
         if (_mainWindow is null) return;
-        if (_mainWindow.WindowState == WindowState.Minimized) _mainWindow.WindowState = WindowState.Normal;
-        _mainWindow.Show();
-        _mainWindow.Activate();
+        WindowActivation.Restore(_mainWindow);
     }
+
+    private void ShowWidget()
+    {
+        if (_mainWindow?.DataContext is MainViewModel viewModel)
+            WidgetWindow.ShowOrActivate(viewModel, ShowMainWindow);
+    }
+
+    private void SystemEvents_PowerModeChanged(object sender, PowerModeChangedEventArgs e)
+    {
+        if (e.Mode == PowerModes.Resume)
+            Dispatcher.BeginInvoke(() => _viewModel?.RefreshAfterSystemResume());
+    }
+
+    private void SystemEvents_TimeChanged(object? sender, EventArgs e) =>
+        Dispatcher.BeginInvoke(() => _viewModel?.RefreshFromSystemClock());
 
     private void ExitApplication()
     {
+        if (_exiting) return;
+        _exiting = true;
+        SystemEvents.PowerModeChanged -= SystemEvents_PowerModeChanged;
+        SystemEvents.TimeChanged -= SystemEvents_TimeChanged;
+        WidgetWindow.CloseCurrent();
         _mainWindow?.AllowClose();
         _tray?.Dispose();
         _instanceListenerCancellation?.Cancel();

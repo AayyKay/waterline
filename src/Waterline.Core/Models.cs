@@ -42,11 +42,13 @@ public sealed class WidgetPlacement
     public double AnchorY { get; set; } = 1;
     public double Width { get; set; } = 400;
     public double Height { get; set; } = 500;
+    public double DpiScale { get; set; } = 1;
 }
 
 public sealed class RuntimeState
 {
     public DateTimeOffset? LastNotificationAt { get; set; }
+    public bool RemindersPaused { get; set; }
 }
 
 public sealed class WaterlineState

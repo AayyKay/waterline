@@ -26,11 +26,13 @@ public partial class MainWindow : Window
         DataContext = viewModel;
         _destinationButtons = [TodayNav, InsightsNav, GoalsNav, ScheduleNav, WidgetNav, SettingsNav];
         SettingsView.InstallRequested += (_, _) => InstallRequested?.Invoke(this, EventArgs.Empty);
+        WidgetView.OpenRequested += (_, _) => OpenWidgetRequested?.Invoke(this, EventArgs.Empty);
         _viewModel.PropertyChanged += ViewModel_PropertyChanged;
         Loaded += OnLoaded;
     }
 
     public event EventHandler? InstallRequested;
+    public event EventHandler? OpenWidgetRequested;
 
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
@@ -75,7 +77,7 @@ public partial class MainWindow : Window
     {
         if (sender is not ToggleButton button || button.Tag is not string destination) return;
         if (!SelectDestination(destination)) return;
-        if (destination == "Widget") WidgetWindow.ShowOrActivate(_viewModel);
+        if (destination == "Widget") OpenWidgetRequested?.Invoke(this, EventArgs.Empty);
     }
 
     private bool SelectDestination(string destination, bool skipPrompt = false)
@@ -110,7 +112,7 @@ public partial class MainWindow : Window
         GoalsView.Visibility = destination == "Goals" ? Visibility.Visible : Visibility.Collapsed;
         ScheduleView.Visibility = destination == "Schedule" ? Visibility.Visible : Visibility.Collapsed;
         SettingsView.Visibility = destination == "Settings" ? Visibility.Visible : Visibility.Collapsed;
-        PlaceholderView.Visibility = destination == "Widget" ? Visibility.Visible : Visibility.Collapsed;
+        WidgetView.Visibility = destination == "Widget" ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private bool ConfirmNavigation()
@@ -143,7 +145,7 @@ public partial class MainWindow : Window
     private void WidgetMenu_Click(object sender, RoutedEventArgs e)
     {
         if (!SelectDestination("Widget")) return;
-        WidgetWindow.ShowOrActivate(_viewModel);
+        OpenWidgetRequested?.Invoke(this, EventArgs.Empty);
     }
 
     private void SettingsMenu_Click(object sender, RoutedEventArgs e) => SelectDestination("Settings");
@@ -229,7 +231,7 @@ public partial class MainWindow : Window
         };
         if (destination is null) return;
         if (!SelectDestination(destination)) return;
-        if (destination == "Widget") WidgetWindow.ShowOrActivate(_viewModel);
+        if (destination == "Widget") OpenWidgetRequested?.Invoke(this, EventArgs.Empty);
         e.Handled = true;
     }
 
@@ -276,6 +278,18 @@ public partial class MainWindow : Window
                 break;
             case "goals":
                 SelectDestination("Goals", true);
+                break;
+            case "widget-page":
+                SelectDestination("Widget", true);
+                break;
+            case "widget-page-compact":
+                Width = MinWidth;
+                Height = MinHeight;
+                SelectDestination("Widget", true);
+                break;
+            case "widget-high-contrast":
+            case "collapsed-high-contrast":
+                ThemeManager.ApplyHighContrastForSnapshot();
                 break;
             case "schedule":
             case "schedule-dirty":

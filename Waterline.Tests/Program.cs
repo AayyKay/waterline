@@ -350,6 +350,41 @@ Test("accepts only official Waterline release pages", () =>
     Equal(false, UpdateAssetPolicy.IsTrustedReleasePage("http://github.com/AayyKay/waterline/releases/latest"));
 });
 
+Test("captures widget placement as normalized work-area anchors", () =>
+{
+    var area = new WidgetWorkArea("DISPLAY2", 1920, 0, 2560, 1400);
+    var captured = WidgetPlacementPolicy.Capture(new WidgetBounds(4080, 900, 400, 500), area, 1.5);
+    Equal("DISPLAY2", captured.MonitorId);
+    Near(1, captured.AnchorX);
+    Near(1, captured.AnchorY);
+    Near(1.5, captured.DpiScale);
+});
+
+Test("restores widget to a fallback monitor and clamps its size", () =>
+{
+    var placement = new WidgetPlacement { MonitorId = "REMOVED", AnchorX = 1, AnchorY = 1 };
+    var areas = new[]
+    {
+        new WidgetWorkArea("PRIMARY", 0, 0, 1200, 800),
+        new WidgetWorkArea("SECONDARY", -900, 0, 900, 700)
+    };
+    var restored = WidgetPlacementPolicy.Restore(placement, areas, "PRIMARY", 1400, 900);
+    Near(0, restored.Left);
+    Near(0, restored.Top);
+    Near(1200, restored.Width);
+    Near(800, restored.Height);
+});
+
+Test("rejects unsupported widget modes and invalid placement", () =>
+{
+    var state = ValidState(12);
+    state.Desktop.WidgetMode = "floating";
+    state.Desktop.WidgetPlacement = new WidgetPlacement { AnchorX = double.NaN };
+    var errors = StateValidator.Validate(state);
+    Equal(true, errors.Contains("Widget mode is not supported."));
+    Equal(true, errors.Contains("Widget placement is invalid."));
+});
+
 foreach (var test in tests)
 {
     try

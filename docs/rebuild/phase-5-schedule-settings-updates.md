@@ -1,6 +1,6 @@
 # Phase 5 Schedule, settings, and updates
 
-Status: implementation candidate awaiting owner approval
+Status: approved September 9, 2026
 
 Branch: `codex/schedule-settings-updates`
 
@@ -43,4 +43,4 @@ Deterministic snapshot fixtures cover Goals, Schedule rest/modified/invalid/comp
 
 The Release solution build completes without warnings or errors. The automated console suite contains 31 passing checks, including trusted-installer acceptance and rejection of wrong hosts, repositories, filenames, and versions. Visual review covers standard and compact Schedule and Settings layouts, dirty and invalid drafts, update available/downloading/ready/failed states, and the unsaved-changes dialog.
 
-The owner approval gate remains open. Keyboard-only traversal, screen-reader inspection, live offline/online update retry, completed installer handoff, and mixed-DPI checks remain on the manual regression checklist and continue into the full release gate.
+The owner approved the Phase 5 implementation candidate on September 9, 2026. Keyboard-only traversal, screen-reader inspection, live offline/online update retry, completed installer handoff, and mixed-DPI checks remain on the manual regression checklist and continue into the full release gate.

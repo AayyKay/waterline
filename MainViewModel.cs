@@ -102,6 +102,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         get
         {
             if (!Settings.RemindersEnabled) return "Reminders are off";
+            if (AreRemindersPaused) return "Reminders are paused";
             var plan = CurrentReminderPlan();
             return plan.DueAt is { } due
                 ? $"Next reminder {TimeZoneInfo.ConvertTime(due, _timeZone):h:mm tt}"
@@ -196,6 +197,21 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     };
 
     public string CurrentWidgetMode => _state.Desktop.WidgetMode;
+    public bool AreRemindersPaused => Settings.RemindersEnabled && _state.Runtime.RemindersPaused;
+    public bool CanToggleReminderPause => Settings.RemindersEnabled && !IsGoalComplete;
+    public string ReminderPauseActionLabel => AreRemindersPaused ? "Resume reminders" : "Pause reminders";
+
+    public WidgetPlacement? CopyWidgetPlacement() => _state.Desktop.WidgetPlacement is not { } placement
+        ? null
+        : new WidgetPlacement
+        {
+            MonitorId = placement.MonitorId,
+            AnchorX = placement.AnchorX,
+            AnchorY = placement.AnchorY,
+            Width = placement.Width,
+            Height = placement.Height,
+            DpiScale = placement.DpiScale
+        };
 
     public string PreviewReminder(WaterlineSettings draft)
     {
@@ -213,20 +229,63 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public bool TryApplySchedule(WaterlineSettings draft, out string error)
     {
         var previous = CopySettings();
+        var previousPaused = _state.Runtime.RemindersPaused;
         Settings.RemindersEnabled = draft.RemindersEnabled;
         Settings.ReminderIntervalMinutes = draft.ReminderIntervalMinutes;
         Settings.WorkdayStart = draft.WorkdayStart;
         Settings.WorkdayEnd = draft.WorkdayEnd;
         Settings.ReminderDays = [.. draft.ReminderDays];
+        if (!draft.RemindersEnabled) _state.Runtime.RemindersPaused = false;
         if (!Persist())
         {
             RestoreSettings(previous);
+            _state.Runtime.RemindersPaused = previousPaused;
             error = PersistenceMessage;
             RefreshAll();
             return false;
         }
         error = string.Empty;
         SetActivityMessage("Reminder schedule saved locally.", false);
+        RefreshAll();
+        return true;
+    }
+
+    public bool TrySaveWidgetLayout(string mode, WidgetPlacement placement)
+    {
+        if (mode is not "expanded" and not "compact") return false;
+        if (StateValidator.Validate(new WaterlineState
+            {
+                Settings = CopySettings(),
+                Desktop = new DesktopState { WidgetMode = mode, WidgetPlacement = placement }
+            }).Any(error => error.Contains("Widget", StringComparison.OrdinalIgnoreCase))) return false;
+
+        var previousMode = _state.Desktop.WidgetMode;
+        var previousPlacement = CopyWidgetPlacement();
+        _state.Desktop.WidgetMode = mode;
+        _state.Desktop.WidgetPlacement = placement;
+        if (Persist())
+        {
+            OnPropertyChanged(nameof(CurrentWidgetMode));
+            return true;
+        }
+        _state.Desktop.WidgetMode = previousMode;
+        _state.Desktop.WidgetPlacement = previousPlacement;
+        OnPropertyChanged(nameof(CurrentWidgetMode));
+        return false;
+    }
+
+    public bool SetRemindersPaused(bool paused)
+    {
+        if (!Settings.RemindersEnabled || IsGoalComplete) return false;
+        var previous = _state.Runtime.RemindersPaused;
+        _state.Runtime.RemindersPaused = paused;
+        if (!Persist())
+        {
+            _state.Runtime.RemindersPaused = previous;
+            RefreshAll();
+            return false;
+        }
+        SetActivityMessage(paused ? "Reminders paused." : "Reminders resumed.", false);
         RefreshAll();
         return true;
     }
@@ -341,12 +400,15 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private IReadOnlyList<DrinkEntry> TodayEntries() =>
         HydrationCalculator.GetEntriesForDay(_state.Drinks, LocalDay(_now), _timeZone);
 
-    private ReminderPlan CurrentReminderPlan() => ReminderScheduler.GetPlan(
-        _now, Settings, TotalOz, TodayEntries().MaxBy(d => d.RecordedAt)?.RecordedAt,
-        _state.Runtime.LastNotificationAt, _timeZone);
+    private ReminderPlan CurrentReminderPlan() => AreRemindersPaused
+        ? new ReminderPlan(null, false)
+        : ReminderScheduler.GetPlan(
+            _now, Settings, TotalOz, TodayEntries().MaxBy(d => d.RecordedAt)?.RecordedAt,
+            _state.Runtime.LastNotificationAt, _timeZone);
 
     private void CheckReminder()
     {
+        if (AreRemindersPaused) return;
         var plan = CurrentReminderPlan();
         if (plan.IsActive && plan.DueAt is { } due && due <= _now)
         {
@@ -479,9 +541,15 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         RefreshAll();
     }
 
+    public void RefreshAfterSystemResume()
+    {
+        RefreshFromSystemClock();
+        CheckReminder();
+    }
+
     public void PrepareSnapshotFixture(string mode)
     {
-        if (mode is "empty" or "dialog" or "dialog-invalid" or "widget" or "collapsed") return;
+        if (mode is "empty" or "dialog" or "dialog-invalid") return;
         var today = LocalDay(_now);
         _state.Drinks.Clear();
         if (mode == "loading")
@@ -568,6 +636,10 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         OnPropertyChanged(nameof(TodayStateLabel));
         OnPropertyChanged(nameof(DateLabel));
         OnPropertyChanged(nameof(ReminderLabel));
+        OnPropertyChanged(nameof(AreRemindersPaused));
+        OnPropertyChanged(nameof(CanToggleReminderPause));
+        OnPropertyChanged(nameof(ReminderPauseActionLabel));
+        OnPropertyChanged(nameof(CurrentWidgetMode));
         OnPropertyChanged(nameof(PaceTitle));
         OnPropertyChanged(nameof(PaceBody));
         OnPropertyChanged(nameof(PaceGuidance));
