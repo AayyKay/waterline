@@ -25,11 +25,11 @@ jobs:
         shell: pwsh
         run: |
           $project = [xml](Get-Content Waterline.csproj)
-          $version = $project.Project.PropertyGroup.Version
+          $version = $project.SelectSingleNode('/Project/PropertyGroup/Version').InnerText.Trim()
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppVersion=$version" installer\Waterline.iss
       - name: Verify release candidate payload
         shell: pwsh
         run: |
           $project = [xml](Get-Content Waterline.csproj)
-          $version = $project.Project.PropertyGroup.Version
+          $version = $project.SelectSingleNode('/Project/PropertyGroup/Version').InnerText.Trim()
           ./tools/Verify-ReleaseCandidate.ps1 -Version $version -PublishDirectory publish -InstallerPath "release/Waterline-Setup-$version.exe"

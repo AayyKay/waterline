@@ -20,7 +20,7 @@ jobs:
         shell: pwsh
         run: |
           $project = [xml](Get-Content Waterline.csproj)
-          $version = $project.Project.PropertyGroup.Version
+          $version = $project.SelectSingleNode('/Project/PropertyGroup/Version').InnerText.Trim()
           if ("v$version" -ne $env:GITHUB_REF_NAME) { throw "Tag $env:GITHUB_REF_NAME does not match project version $version" }
       - name: Run foundation tests
         run: dotnet run --project Waterline.Tests/Waterline.Tests.csproj --configuration Release
@@ -32,19 +32,19 @@ jobs:
         shell: pwsh
         run: |
           $project = [xml](Get-Content Waterline.csproj)
-          $version = $project.Project.PropertyGroup.Version
+          $version = $project.SelectSingleNode('/Project/PropertyGroup/Version').InnerText.Trim()
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppVersion=$version" installer\Waterline.iss
       - name: Verify release candidate payload
         shell: pwsh
         run: |
           $project = [xml](Get-Content Waterline.csproj)
-          $version = $project.Project.PropertyGroup.Version
+          $version = $project.SelectSingleNode('/Project/PropertyGroup/Version').InnerText.Trim()
           ./tools/Verify-ReleaseCandidate.ps1 -Version $version -PublishDirectory publish -InstallerPath "release/Waterline-Setup-$version.exe"
       - name: Create release checksums
         shell: pwsh
         run: |
           $project = [xml](Get-Content Waterline.csproj)
-          $version = $project.Project.PropertyGroup.Version
+          $version = $project.SelectSingleNode('/Project/PropertyGroup/Version').InnerText.Trim()
           $installer = "release/Waterline-Setup-$version.exe"
           $hash = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant()
           "$hash  Waterline-Setup-$version.exe" | Set-Content -LiteralPath "release/Waterline-Setup-$version.exe.sha256" -Encoding ascii
