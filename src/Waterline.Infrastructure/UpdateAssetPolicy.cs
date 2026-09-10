@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+
 namespace Waterline.Infrastructure;
 
 public static class UpdateAssetPolicy
@@ -32,5 +34,24 @@ public static class UpdateAssetPolicy
                uri.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase) &&
                uri.AbsolutePath.StartsWith("/AayyKay/waterline/releases/", StringComparison.OrdinalIgnoreCase) &&
                string.IsNullOrEmpty(uri.UserInfo);
+    }
+
+    public static bool TryNormalizeSha256(string? digest, out string normalized)
+    {
+        normalized = string.Empty;
+        const string prefix = "sha256:";
+        if (digest is null || !digest.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) return false;
+        var candidate = digest[prefix.Length..];
+        if (candidate.Length != 64 || candidate.Any(character => !Uri.IsHexDigit(character))) return false;
+        normalized = candidate.ToLowerInvariant();
+        return true;
+    }
+
+    public static bool HasExpectedSha256(string path, string expectedSha256)
+    {
+        if (!TryNormalizeSha256($"sha256:{expectedSha256}", out var normalized)) return false;
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+        var actual = SHA256.HashData(stream);
+        return CryptographicOperations.FixedTimeEquals(actual, Convert.FromHexString(normalized));
     }
 }

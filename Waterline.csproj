@@ -13,9 +13,13 @@
     <Description>A native Windows hydration tracker.</Description>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>public\icons\waterline-app.ico</ApplicationIcon>
-    <AssemblyVersion>2.0.1.0</AssemblyVersion>
-    <FileVersion>2.0.1.0</FileVersion>
-    <Version>2.0.1</Version>
+    <AssemblyVersion>2.1.0.0</AssemblyVersion>
+    <FileVersion>2.1.0.0</FileVersion>
+    <Version>2.1.0</Version>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
   </PropertyGroup>
   <ItemGroup>
     <Resource Include="public\icons\waterline-app.png" Link="Assets\waterline-app.png" />
@@ -25,9 +29,12 @@
     <Resource Include="public\audio\waterline-log.wav" Link="Assets\waterline-log.wav" />
     <Resource Include="public\audio\waterline-reminder.wav" Link="Assets\waterline-reminder.wav" />
     <Compile Remove="Waterline.Tests\**\*.cs" />
+    <Compile Remove="Waterline.App.Tests\**\*.cs" />
     <Compile Remove="src\**\*.cs" />
     <Compile Remove="tools\**\*.cs" />
     <None Remove="Waterline.Tests\**\*" />
+    <None Remove="Waterline.App.Tests\**\*" />
+    <None Include="$(NuGetPackageRoot)leveldb.standard\2.1.6.1\license.txt" Link="licenses\LevelDB.Standard-LICENSE.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="src\Waterline.Core\Waterline.Core.csproj" />

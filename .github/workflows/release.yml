@@ -24,14 +24,30 @@ jobs:
           if ("v$version" -ne $env:GITHUB_REF_NAME) { throw "Tag $env:GITHUB_REF_NAME does not match project version $version" }
       - name: Run foundation tests
         run: dotnet run --project Waterline.Tests/Waterline.Tests.csproj --configuration Release
+      - name: Run Windows application tests
+        run: dotnet run --project Waterline.App.Tests/Waterline.App.Tests.csproj --configuration Release
       - name: Publish self-contained Windows app
-        run: dotnet publish Waterline.csproj --configuration Release --runtime win-x64 --self-contained true --output publish -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+        run: dotnet publish Waterline.csproj --configuration Release --runtime win-x64 --self-contained true --output publish -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false
       - name: Build Windows installer
         shell: pwsh
         run: |
           $project = [xml](Get-Content Waterline.csproj)
           $version = $project.Project.PropertyGroup.Version
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppVersion=$version" installer\Waterline.iss
+      - name: Verify release candidate payload
+        shell: pwsh
+        run: |
+          $project = [xml](Get-Content Waterline.csproj)
+          $version = $project.Project.PropertyGroup.Version
+          ./tools/Verify-ReleaseCandidate.ps1 -Version $version -PublishDirectory publish -InstallerPath "release/Waterline-Setup-$version.exe"
+      - name: Create release checksums
+        shell: pwsh
+        run: |
+          $project = [xml](Get-Content Waterline.csproj)
+          $version = $project.Project.PropertyGroup.Version
+          $installer = "release/Waterline-Setup-$version.exe"
+          $hash = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  Waterline-Setup-$version.exe" | Set-Content -LiteralPath "release/Waterline-Setup-$version.exe.sha256" -Encoding ascii
       - name: Publish GitHub Release
         shell: pwsh
         env:
@@ -41,5 +57,6 @@ jobs:
           gh release create $env:GITHUB_REF_NAME `
             --repo $env:GITHUB_REPOSITORY `
             --title "Waterline $version" `
-            --generate-notes `
-            "release/Waterline-Setup-$version.exe"
+            --notes-file "docs/release-notes-$version.md" `
+            "release/Waterline-Setup-$version.exe" `
+            "release/Waterline-Setup-$version.exe.sha256"

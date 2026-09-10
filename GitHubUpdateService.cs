@@ -8,7 +8,7 @@ using Waterline.Infrastructure;
 
 namespace Waterline;
 
-public sealed record ReleaseInfo(Version Version, string PageUrl, Uri? InstallerUri);
+public sealed record ReleaseInfo(Version Version, string PageUrl, Uri? InstallerUri, string? InstallerSha256);
 
 public interface IUpdateService : IDisposable
 {
@@ -49,16 +49,22 @@ public sealed class GitHubUpdateService : IUpdateService
             ? candidatePage!
             : "https://github.com/AayyKay/waterline/releases/latest";
         Uri? installer = null;
+        string? installerSha256 = null;
         if (root.TryGetProperty("assets", out var assets))
         {
             foreach (var asset in assets.EnumerateArray())
             {
                 var name = asset.GetProperty("name").GetString();
                 var url = asset.GetProperty("browser_download_url").GetString();
-                if (UpdateAssetPolicy.TryGetTrustedInstallerUri(url, name, version, out installer)) break;
+                var digest = asset.TryGetProperty("digest", out var digestElement) ? digestElement.GetString() : null;
+                if (!UpdateAssetPolicy.TryGetTrustedInstallerUri(url, name, version, out var candidate) ||
+                    !UpdateAssetPolicy.TryNormalizeSha256(digest, out var normalizedDigest)) continue;
+                installer = candidate;
+                installerSha256 = normalizedDigest;
+                break;
             }
         }
-        return new ReleaseInfo(version, page, installer);
+        return new ReleaseInfo(version, page, installer, installerSha256);
     }
 
     public async Task<string> DownloadAsync(
@@ -66,7 +72,8 @@ public sealed class GitHubUpdateService : IUpdateService
         IProgress<double>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        if (release.InstallerUri is null) throw new InvalidOperationException("This release does not contain a trusted Waterline installer.");
+        if (release.InstallerUri is null || release.InstallerSha256 is null)
+            throw new InvalidOperationException("This release does not contain a Waterline installer with a trusted SHA-256 digest.");
         var destination = Path.Combine(Path.GetTempPath(), $"Waterline-Setup-{release.Version}-{Guid.NewGuid():N}.exe");
         try
         {
@@ -88,6 +95,8 @@ public sealed class GitHubUpdateService : IUpdateService
                 await output.FlushAsync(cancellationToken);
                 output.Flush(true);
             }
+            if (!UpdateAssetPolicy.HasExpectedSha256(destination, release.InstallerSha256))
+                throw new InvalidDataException("The downloaded installer did not match the SHA-256 digest published by GitHub.");
             return destination;
         }
         catch

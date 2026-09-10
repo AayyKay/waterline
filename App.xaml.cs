@@ -41,7 +41,7 @@ public partial class App : System.Windows.Application
             ? Path.Combine(Path.GetTempPath(), "Waterline", "Snapshots", Environment.ProcessId.ToString(), "state.json")
             : null;
         var store = new AppStateStore(statePath);
-        var viewModel = new MainViewModel(store);
+        var viewModel = new MainViewModel(store, enableLegacyDiscovery: !isSnapshot);
         _viewModel = viewModel;
         _mainWindow = new MainWindow(viewModel, enableUpdateChecks: !isSnapshot);
         _mainWindow.InstallRequested += (_, _) => ExitApplication();

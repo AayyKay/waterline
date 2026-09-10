@@ -209,7 +209,7 @@ Audio cues are original Waterline assets or deterministic synthesis approved dur
 
 ## Updates and security boundary
 
-The update service uses a bounded timeout, cancellation, a declared user agent, and GitHub's official HTTPS release endpoints. It validates that the asset belongs to the expected repository and follows an approved filename convention. Phase 8 will decide whether checksum or code-signature enforcement is possible before release.
+The update service uses a bounded timeout, cancellation, a declared user agent, and GitHub's official HTTPS release endpoints. It validates that the asset belongs to the expected repository, follows the version-matched filename convention, and includes a well-formed SHA-256 digest supplied by GitHub Releases. The downloaded installer is closed and verified against that digest before installation can be offered. Phase 8 records that no code-signing certificate is configured for 2.1.0, so the unsigned-installer warning remains an explicit release risk.
 
 The installer file is downloaded to a unique temporary path, flushed, closed, and then launched visibly. No command line is constructed from release metadata. Update failures are isolated from application state.
 

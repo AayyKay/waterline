@@ -44,7 +44,9 @@ public sealed class AppStateStore
     private readonly object _gate = new();
     private readonly string _filePath;
     private readonly string _backupPath;
+    private readonly string _rollbackPath;
     private SaveBlockReason _saveBlockReason;
+    private string? _migrationSourcePath;
 
     public AppStateStore(string? filePath = null)
     {
@@ -53,27 +55,34 @@ public sealed class AppStateStore
             "Waterline",
             "state.json");
         _backupPath = Path.Combine(Path.GetDirectoryName(_filePath)!, "state.backup.json");
+        _rollbackPath = Path.Combine(Path.GetDirectoryName(_filePath)!, "state.pre-schema-1.json");
     }
 
     public string FilePath => _filePath;
+    public string RollbackPath => _rollbackPath;
 
     public StateLoadResult Load()
     {
         lock (_gate)
         {
             _saveBlockReason = SaveBlockReason.None;
+            _migrationSourcePath = null;
             if (!File.Exists(_filePath) && !File.Exists(_backupPath))
                 return new StateLoadResult(new WaterlineState(), StateLoadStatus.New, true, []);
 
             if (TryRead(_filePath, out var state, out var migrated, out var primaryMessages))
+            {
+                if (migrated) _migrationSourcePath = _filePath;
                 return new StateLoadResult(
                     state!,
                     migrated ? StateLoadStatus.Migrated : StateLoadStatus.Loaded,
                     true,
                     primaryMessages);
+            }
 
             if (TryRead(_backupPath, out state, out migrated, out var backupMessages))
             {
+                if (migrated) _migrationSourcePath = _backupPath;
                 _saveBlockReason = SaveBlockReason.RecoveredFromBackup;
                 var messages = primaryMessages
                     .Concat(backupMessages)
@@ -91,7 +100,11 @@ public sealed class AppStateStore
         }
     }
 
-    public StateSaveResult Save(WaterlineState state)
+    public StateSaveResult Save(WaterlineState state) => SaveCore(state, preserveCurrentForImport: false);
+
+    public StateSaveResult SaveImportedState(WaterlineState state) => SaveCore(state, preserveCurrentForImport: true);
+
+    private StateSaveResult SaveCore(WaterlineState state, bool preserveCurrentForImport)
     {
         lock (_gate)
         {
@@ -107,6 +120,16 @@ public sealed class AppStateStore
             var temporaryPath = Path.Combine(directory, $"state.{Guid.NewGuid():N}.tmp");
             try
             {
+                if (_migrationSourcePath is not null && !File.Exists(_rollbackPath))
+                    PreserveCopy(_migrationSourcePath, _rollbackPath);
+                if (preserveCurrentForImport && File.Exists(_filePath))
+                {
+                    var importBackup = Path.Combine(
+                        directory,
+                        $"state.pre-import.{DateTimeOffset.UtcNow:yyyyMMddHHmmssfff}.{Guid.NewGuid():N}.json");
+                    PreserveCopy(_filePath, importBackup);
+                }
+
                 var json = JsonSerializer.Serialize(state, JsonOptions);
                 using (var stream = new FileStream(
                            temporaryPath,
@@ -126,6 +149,7 @@ public sealed class AppStateStore
                     File.Replace(temporaryPath, _filePath, _backupPath, true);
                 else
                     File.Move(temporaryPath, _filePath);
+                _migrationSourcePath = null;
                 return StateSaveResult.Saved;
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
@@ -136,6 +160,31 @@ public sealed class AppStateStore
             {
                 try { if (File.Exists(temporaryPath)) File.Delete(temporaryPath); } catch { }
             }
+        }
+    }
+
+    private static void PreserveCopy(string sourcePath, string destinationPath)
+    {
+        var temporaryPath = destinationPath + $".{Guid.NewGuid():N}.tmp";
+        try
+        {
+            using (var source = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+            using (var destination = new FileStream(
+                       temporaryPath,
+                       FileMode.CreateNew,
+                       FileAccess.Write,
+                       FileShare.None,
+                       16 * 1024,
+                       FileOptions.WriteThrough))
+            {
+                source.CopyTo(destination);
+                destination.Flush(true);
+            }
+            File.Move(temporaryPath, destinationPath, false);
+        }
+        finally
+        {
+            try { if (File.Exists(temporaryPath)) File.Delete(temporaryPath); } catch { }
         }
     }
 

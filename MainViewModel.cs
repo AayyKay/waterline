@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.IO;
 using System.Runtime.CompilerServices;
 using System.Windows.Threading;
 using Waterline.Core;
@@ -25,7 +26,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private StateLoadStatus _loadStatus;
     private HistoryDayView? _selectedHistoryDay;
 
-    public MainViewModel(AppStateStore store, IClock? clock = null, TimeZoneInfo? timeZone = null)
+    public MainViewModel(AppStateStore store, IClock? clock = null, TimeZoneInfo? timeZone = null, bool enableLegacyDiscovery = true)
     {
         _store = store;
         _clockProvider = clock ?? new SystemClock();
@@ -45,7 +46,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         RecentEntries = new ObservableCollection<DrinkEntryView>();
         HistoryDays = new ObservableCollection<HistoryDayView>();
         HistoryEntries = new ObservableCollection<DrinkEntryView>();
-        Configuration = new ConfigurationViewModel(this, new GitHubUpdateService(), new DiagnosticLog(store.FilePath));
+        Configuration = new ConfigurationViewModel(this, new GitHubUpdateService(), new DiagnosticLog(store.FilePath), enableLegacyDiscovery);
         RefreshDrinkViews();
         RefreshHistory();
         _clock.Tick += (_, _) =>
@@ -308,6 +309,55 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         error = string.Empty;
         if (!Settings.SoundsEnabled) SoundService.Stop();
         SetActivityMessage("Settings saved locally.", false);
+        RefreshHistory();
+        RefreshAll();
+        return true;
+    }
+
+    public bool TryImportLegacyData(string levelDbPath, out LegacyMergeResult merge, out string error)
+    {
+        merge = new LegacyMergeResult(0, 0, 0, false);
+        error = string.Empty;
+        if (!CanModifyData)
+        {
+            error = "Resolve the current data recovery state before importing older Waterline data.";
+            return false;
+        }
+
+        LegacyImportSnapshot snapshot;
+        try
+        {
+            snapshot = new LegacyDataImporter().Read(levelDbPath);
+        }
+        catch (Exception exception)
+        {
+            error = $"Waterline could not read the older data: {exception.Message}";
+            return false;
+        }
+
+        var previousSettings = CopySettings();
+        var previousIdentifiers = _state.Drinks.Select(entry => entry.Id).ToHashSet(StringComparer.Ordinal);
+        merge = LegacyDataImporter.MergeInto(_state, snapshot);
+        if (merge.ImportedDrinks == 0 && !merge.SettingsImported)
+        {
+            error = merge.SkippedRecords > 0
+                ? "No valid older Waterline entries were available to import."
+                : "The older Waterline profile does not contain hydration data.";
+            return false;
+        }
+
+        var save = _store.SaveImportedState(_state);
+        if (!save.Success)
+        {
+            _state.Drinks.RemoveAll(entry => !previousIdentifiers.Contains(entry.Id));
+            RestoreSettings(previousSettings);
+            error = save.Message ?? "Waterline could not save the imported data.";
+            RefreshAll();
+            return false;
+        }
+
+        SetActivityMessage($"Imported {merge.ImportedDrinks} older drink entr{(merge.ImportedDrinks == 1 ? "y" : "ies")}.", false);
+        RefreshDrinkCollection();
         RefreshHistory();
         RefreshAll();
         return true;

@@ -17,3 +17,19 @@ jobs:
         run: dotnet build Waterline.sln --configuration Release
       - name: Run foundation tests
         run: dotnet run --project Waterline.Tests/Waterline.Tests.csproj --configuration Release
+      - name: Run Windows application tests
+        run: dotnet run --project Waterline.App.Tests/Waterline.App.Tests.csproj --configuration Release
+      - name: Publish self-contained Windows app
+        run: dotnet publish Waterline.csproj --configuration Release --runtime win-x64 --self-contained true --output publish -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false
+      - name: Build validation installer
+        shell: pwsh
+        run: |
+          $project = [xml](Get-Content Waterline.csproj)
+          $version = $project.Project.PropertyGroup.Version
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppVersion=$version" installer\Waterline.iss
+      - name: Verify release candidate payload
+        shell: pwsh
+        run: |
+          $project = [xml](Get-Content Waterline.csproj)
+          $version = $project.Project.PropertyGroup.Version
+          ./tools/Verify-ReleaseCandidate.ps1 -Version $version -PublishDirectory publish -InstallerPath "release/Waterline-Setup-$version.exe"

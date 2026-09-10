@@ -28,7 +28,21 @@
       </StackPanel>
 
       <StackPanel Grid.Column="2" x:Name="SettingsRail">
-        <Border Style="{StaticResource Card}" Background="{DynamicResource ActivityRailBrush}" Margin="0,0,0,16"><StackPanel><TextBlock Text="Local data" Style="{StaticResource SectionTitleText}" /><TextBlock Text="{Binding Configuration.RecoveryStatus}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,12,0,0" /><TextBox Text="{Binding Configuration.DataLocation, Mode=OneWay}" ToolTip="{Binding Configuration.DataLocation}" IsReadOnly="True" Margin="0,12,0,0" automation:AutomationProperties.Name="Waterline local data path" /><WrapPanel Margin="0,12,0,0"><Button Content="Show in folder" Click="OpenData_Click" Margin="0,0,8,8" /><Button Content="Restore recovered data" Click="Recover_Click" IsEnabled="{Binding CanAcknowledgeRecovery}" Margin="0,0,0,8" /></WrapPanel></StackPanel></Border>
+        <Border Style="{StaticResource Card}" Background="{DynamicResource ActivityRailBrush}" Margin="0,0,0,16">
+          <StackPanel>
+            <TextBlock Text="Local data" Style="{StaticResource SectionTitleText}" />
+            <TextBlock Text="{Binding Configuration.RecoveryStatus}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,12,0,0" />
+            <TextBox Text="{Binding Configuration.DataLocation, Mode=OneWay}" ToolTip="{Binding Configuration.DataLocation}" IsReadOnly="True" Margin="0,12,0,0" automation:AutomationProperties.Name="Waterline local data path" />
+            <WrapPanel Margin="0,12,0,0"><Button Content="Show in folder" Click="OpenData_Click" Margin="0,0,8,8" /><Button Content="Restore recovered data" Click="Recover_Click" IsEnabled="{Binding CanAcknowledgeRecovery}" Margin="0,0,0,8" /></WrapPanel>
+            <Border BorderBrush="{DynamicResource BoundaryBrush}" BorderThickness="0,1,0,0" Margin="0,10,0,0" Padding="0,14,0,0">
+              <StackPanel>
+                <TextBlock Text="Older Waterline data" FontWeight="SemiBold" />
+                <TextBlock Text="{Binding Configuration.LegacyImportStatus}" Style="{StaticResource SecondaryText}" TextWrapping="Wrap" Margin="0,4,0,0" automation:AutomationProperties.LiveSetting="Polite" />
+                <Button Content="Import older data" Click="ImportLegacy_Click" IsEnabled="{Binding Configuration.CanImportLegacy}" HorizontalAlignment="Left" Margin="0,10,0,0" ToolTip="Merge valid Electron-era Waterline entries and settings" automation:AutomationProperties.Name="Import older Waterline data" />
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </Border>
         <Border Style="{StaticResource Card}" Background="{DynamicResource ActivityRailBrush}" Margin="0,0,0,16"><StackPanel><TextBlock Text="Privacy" Style="{StaticResource SectionTitleText}" /><TextBlock Text="Hydration entries, preferences, schedules, widget placement, and diagnostics stay on this PC. Waterline has no analytics or telemetry. Network access is limited to update checks and downloads from the official GitHub repository." Style="{StaticResource SecondaryText}" FontSize="13" TextWrapping="Wrap" Margin="0,10,0,0" /></StackPanel></Border>
         <Border Style="{StaticResource Card}" Background="{DynamicResource ActivityRailBrush}"><StackPanel><TextBlock Text="About &amp; diagnostics" Style="{StaticResource SectionTitleText}" /><TextBlock Text="{Binding Configuration.VersionLabel}" FontWeight="SemiBold" Margin="0,10,0,0" /><TextBlock Text="{Binding Configuration.DiagnosticsStatus}" Style="{StaticResource SecondaryText}" TextWrapping="Wrap" Margin="0,5,0,0" /><TextBlock Text="{Binding Configuration.DiagnosticsPath}" Style="{StaticResource SecondaryText}" TextWrapping="Wrap" Margin="0,5,0,0" /><Button Content="Clear diagnostics" Click="ClearDiagnostics_Click" HorizontalAlignment="Left" Margin="0,12,0,0" /></StackPanel></Border>
       </StackPanel>

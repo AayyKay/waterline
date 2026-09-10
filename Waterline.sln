@@ -10,6 +10,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Waterline.Infrastructure", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Waterline.Tests", "Waterline.Tests\Waterline.Tests.csproj", "{9731D724-5B42-4698-B2CB-CFBAD759EEAE}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Waterline.App.Tests", "Waterline.App.Tests\Waterline.App.Tests.csproj", "{F2D12F10-227C-4B5C-A6CB-2FE7A803A809}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -32,6 +34,10 @@ Global
 		{9731D724-5B42-4698-B2CB-CFBAD759EEAE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9731D724-5B42-4698-B2CB-CFBAD759EEAE}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9731D724-5B42-4698-B2CB-CFBAD759EEAE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F2D12F10-227C-4B5C-A6CB-2FE7A803A809}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F2D12F10-227C-4B5C-A6CB-2FE7A803A809}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F2D12F10-227C-4B5C-A6CB-2FE7A803A809}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F2D12F10-227C-4B5C-A6CB-2FE7A803A809}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

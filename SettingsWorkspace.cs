@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.IO;
 using Waterline.Core;
+using Waterline.Infrastructure;
 
 namespace Waterline;
 
@@ -53,12 +54,22 @@ public sealed class ConfigurationViewModel : INotifyPropertyChanged, IDisposable
     private string? _installerPath;
     private bool _updateInitialized;
     private CancellationTokenSource? _updateCancellation;
+    private readonly string? _legacyDataPath;
+    private string _legacyImportStatus;
+    private bool _isImportingLegacy;
 
-    public ConfigurationViewModel(MainViewModel main, IUpdateService updates, DiagnosticLog diagnostics)
+    public ConfigurationViewModel(MainViewModel main, IUpdateService updates, DiagnosticLog diagnostics, bool enableLegacyDiscovery = true)
     {
         _main = main;
         _updates = updates;
         _diagnostics = diagnostics;
+        _legacyDataPath = enableLegacyDiscovery
+            ? new LegacyDataDiscovery().FindElectronLocations()
+                .FirstOrDefault(location => location.Exists)?.LevelDbPath
+            : null;
+        _legacyImportStatus = _legacyDataPath is null
+            ? "No Electron-era Waterline data was found on this PC."
+            : "An Electron-era Waterline profile is available. Importing merges valid settings and entries without changing the older files.";
 #if DEBUG
         _updateState = UpdateExperienceState.Unavailable;
         _updateStatus = "Unavailable in development";
@@ -109,6 +120,8 @@ public sealed class ConfigurationViewModel : INotifyPropertyChanged, IDisposable
     public string RecoveryStatus => _main.RecoveryStatusLabel;
     public string DiagnosticsStatus => _diagnostics.Exists ? "A bounded local diagnostic log is available." : "No diagnostic log has been created.";
     public string DiagnosticsPath => _diagnostics.Path;
+    public string LegacyImportStatus => _legacyImportStatus;
+    public bool CanImportLegacy => _legacyDataPath is not null && !_isImportingLegacy && _main.CanModifyData;
 
     public UpdateExperienceState UpdateState => _updateState;
     public string UpdateStatus => _updateStatus;
@@ -117,7 +130,7 @@ public sealed class ConfigurationViewModel : INotifyPropertyChanged, IDisposable
     public bool IsChecking => _updateState == UpdateExperienceState.Checking;
     public bool IsDownloading => _updateState == UpdateExperienceState.Downloading;
     public bool CanCheckForUpdates => _updateState is UpdateExperienceState.Idle or UpdateExperienceState.Current or UpdateExperienceState.Failed;
-    public bool CanDownloadUpdate => _updateState == UpdateExperienceState.Available && _release?.InstallerUri is not null;
+    public bool CanDownloadUpdate => _updateState == UpdateExperienceState.Available && _release?.InstallerUri is not null && _release.InstallerSha256 is not null;
     public bool CanInstallUpdate => _updateState == UpdateExperienceState.Ready && _installerPath is not null;
     public bool CanOpenRelease => _release is not null && _updateState == UpdateExperienceState.Available;
 
@@ -318,6 +331,41 @@ public sealed class ConfigurationViewModel : INotifyPropertyChanged, IDisposable
         return cleared;
     }
 
+    public bool ImportLegacyData()
+    {
+        if (!CanImportLegacy || _legacyDataPath is null) return false;
+        _isImportingLegacy = true;
+        OnPropertyChanged(nameof(CanImportLegacy));
+        try
+        {
+            if (!_main.TryImportLegacyData(_legacyDataPath, out var merge, out var error))
+            {
+                _legacyImportStatus = error;
+                _settingsError = error;
+                NotifySettings();
+                OnPropertyChanged(nameof(LegacyImportStatus));
+                return false;
+            }
+
+            var details = $"Imported {merge.ImportedDrinks} drink entr{(merge.ImportedDrinks == 1 ? "y" : "ies")}" +
+                          $", ignored {merge.DuplicateDrinks} duplicate{(merge.DuplicateDrinks == 1 ? string.Empty : "s")}" +
+                          $", and skipped {merge.SkippedRecords} invalid record{(merge.SkippedRecords == 1 ? string.Empty : "s")}.";
+            ReloadSchedule();
+            ReloadSettings();
+            _legacyImportStatus = merge.SettingsImported ? details + " Older settings were applied." : details;
+            _settingsError = string.Empty;
+            _settingsNotice = "Older Waterline data imported. A pre-import backup was preserved.";
+            NotifySettings();
+            OnPropertyChanged(nameof(LegacyImportStatus));
+            return true;
+        }
+        finally
+        {
+            _isImportingLegacy = false;
+            OnPropertyChanged(nameof(CanImportLegacy));
+        }
+    }
+
     public void PrepareSnapshot(string mode)
     {
         switch (mode)
@@ -340,7 +388,7 @@ public sealed class ConfigurationViewModel : INotifyPropertyChanged, IDisposable
                 SetUpdate(UpdateExperienceState.Checking, "Checking for updates…", "Contacting the official Waterline release endpoint.");
                 break;
             case "update-available":
-                _release = new ReleaseInfo(new Version(2, 1, 0), "https://github.com/AayyKay/waterline/releases/tag/v2.1.0", new Uri("https://github.com/AayyKay/waterline/releases/download/v2.1.0/Waterline-Setup-2.1.0.exe"));
+                _release = new ReleaseInfo(new Version(2, 1, 0), "https://github.com/AayyKay/waterline/releases/tag/v2.1.0", new Uri("https://github.com/AayyKay/waterline/releases/download/v2.1.0/Waterline-Setup-2.1.0.exe"), new string('a', 64));
                 SetUpdate(UpdateExperienceState.Available, "Update available", "Version 2.1.0 is ready to download from GitHub Releases.");
                 break;
             case "update-downloading":
@@ -348,7 +396,7 @@ public sealed class ConfigurationViewModel : INotifyPropertyChanged, IDisposable
                 SetUpdate(UpdateExperienceState.Downloading, "Downloading Waterline 2.1.0", "58% complete. Hydration logging remains available.");
                 break;
             case "update-ready":
-                _release = new ReleaseInfo(new Version(2, 1, 0), "https://github.com/AayyKay/waterline/releases/tag/v2.1.0", null);
+                _release = new ReleaseInfo(new Version(2, 1, 0), "https://github.com/AayyKay/waterline/releases/tag/v2.1.0", null, null);
                 _installerPath = Path.Combine(Path.GetTempPath(), "Waterline-Setup-2.1.0-snapshot.exe");
                 SetUpdate(UpdateExperienceState.Ready, "Ready to install", "Installation starts only when you choose Install.");
                 break;

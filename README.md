@@ -11,6 +11,7 @@ Waterline is a native Windows hydration tracker built with .NET 8 and WPF. It do
 - Single-instance enforcement.
 - Local data storage in `%LOCALAPPDATA%\Waterline\state.json`.
 - Update checks and installer downloads from this repository's GitHub Releases.
+- Optional read-only import of compatible data from an older Electron profile.
 
 No hydration history is uploaded. GitHub is used only for source control and application releases.
 
@@ -46,6 +47,7 @@ Build and test:
 ```powershell
 dotnet build Waterline.csproj
 dotnet run --project Waterline.Tests\Waterline.Tests.csproj
+dotnet run --project Waterline.App.Tests\Waterline.App.Tests.csproj
 ```
 
 Run the app:
@@ -57,7 +59,7 @@ dotnet run --project Waterline.csproj
 Create the self-contained application:
 
 ```powershell
-dotnet publish Waterline.csproj -c Release -r win-x64 --self-contained true -o publish
+dotnet publish Waterline.csproj -c Release -r win-x64 --self-contained true -o publish -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false
 ```
 
 ## Publishing
@@ -66,4 +68,6 @@ dotnet publish Waterline.csproj -c Release -r win-x64 --self-contained true -o p
 2. Commit and push the version change.
 3. Create and push a matching tag, such as `v2.0.0`.
 
-The release workflow publishes `Waterline-Setup-<version>.exe` to GitHub Releases. Installed copies can discover and install that release from the Waterline settings panel.
+The release workflow publishes `Waterline-Setup-<version>.exe` and its SHA-256 sidecar to GitHub Releases. Installed copies accept only a version-matched installer from the official repository with a GitHub-provided SHA-256 digest, then verify the downloaded file before offering installation.
+
+See [Third-party notices](THIRD-PARTY-NOTICES.md) for packaged dependency licenses.

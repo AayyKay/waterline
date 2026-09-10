@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text;
+using LevelDB;
 using Waterline.Core;
 using Waterline.Infrastructure;
 
@@ -200,16 +201,32 @@ Test("saving migrated state writes schema one and preserves values", () =>
 {
     using var temp = new TemporaryDirectory();
     var statePath = Path.Combine(temp.Path, "state.json");
-    File.WriteAllText(statePath, LegacyJson());
+    var original = LegacyJson();
+    File.WriteAllText(statePath, original);
     var store = new AppStateStore(statePath);
     var migrated = store.Load();
     Equal(true, store.Save(migrated.State).Success);
+    Equal(original, File.ReadAllText(store.RollbackPath));
     using var json = JsonDocument.Parse(File.ReadAllText(statePath));
     Equal(StateSchema.CurrentVersion, json.RootElement.GetProperty("schemaVersion").GetInt32());
     var reloaded = new AppStateStore(statePath).Load();
     Equal(StateLoadStatus.Loaded, reloaded.Status);
     Near(80, reloaded.State.Settings.DailyGoalOz);
     Equal(2, reloaded.State.Drinks.Count);
+});
+
+Test("preserves the first rollback copy across later schema-one saves", () =>
+{
+    using var temp = new TemporaryDirectory();
+    var statePath = Path.Combine(temp.Path, "state.json");
+    var original = LegacyJson();
+    File.WriteAllText(statePath, original);
+    var store = new AppStateStore(statePath);
+    var migrated = store.Load();
+    Equal(true, store.Save(migrated.State).Success);
+    migrated.State.Drinks.Add(Drink(4, new DateTimeOffset(2026, 9, 8, 12, 0, 0, TimeSpan.FromHours(-5))));
+    Equal(true, store.Save(migrated.State).Success);
+    Equal(original, File.ReadAllText(store.RollbackPath));
 });
 
 Test("refuses to coerce an unsupported future schema during save", () =>
@@ -321,6 +338,66 @@ Test("legacy Electron discovery is read-only", () =>
     Equal(before, Directory.GetDirectories(temp.Path, "*", SearchOption.AllDirectories).Length);
 });
 
+Test("imports a copied Electron LevelDB profile without changing its source", () =>
+{
+    using var temp = new TemporaryDirectory();
+    var levelDb = Path.Combine(temp.Path, "leveldb");
+    using (var database = new DB(new Options { CreateIfMissing = true }, levelDb))
+    {
+        database.Put(ChromiumKey("waterline-settings"), ChromiumValue("{\"goal\":96,\"interval\":45,\"start\":\"08:30\",\"end\":\"18:00\",\"reminders\":true,\"weekdays\":[1,3,5],\"sounds\":false}"));
+        database.Put(ChromiumKey("waterline-drinks-2026-09-08"), ChromiumValue("[{\"id\":1001,\"amount\":12,\"at\":\"2026-09-08T09:15:00-05:00\"},{\"id\":1001,\"amount\":12,\"at\":\"2026-09-08T09:15:00-05:00\"},{\"id\":1002,\"amount\":0,\"at\":\"bad\"}]"));
+    }
+    var sourceBefore = Directory.GetFiles(levelDb).ToDictionary(path => Path.GetFileName(path)!, File.ReadAllBytes);
+
+    var snapshot = new LegacyDataImporter().Read(levelDb);
+    Equal(1, snapshot.Drinks.Count);
+    Equal(1, snapshot.SkippedRecords);
+    Near(96, snapshot.Settings!.DailyGoalOz!.Value);
+    Equal(45, snapshot.Settings.ReminderIntervalMinutes!.Value);
+    Equal(false, snapshot.Settings.SoundsEnabled!.Value);
+    foreach (var source in sourceBefore)
+        Equal(true, source.Value.SequenceEqual(File.ReadAllBytes(Path.Combine(levelDb, source.Key!))));
+
+    var state = ValidState(8);
+    var first = LegacyDataImporter.MergeInto(state, snapshot);
+    Equal(1, first.ImportedDrinks);
+    Equal(true, first.SettingsImported);
+    var repeated = LegacyDataImporter.MergeInto(state, snapshot);
+    Equal(0, repeated.ImportedDrinks);
+    Equal(1, repeated.DuplicateDrinks);
+});
+
+Test("merges only settings fields present in a partial legacy record", () =>
+{
+    var snapshot = LegacyDataImporter.ParseRecords([
+        new KeyValuePair<byte[], byte[]>(ChromiumKey("waterline-settings"), ChromiumValue("{\"sounds\":false}"))
+    ]);
+    var state = ValidState(8);
+    state.Settings.DailyGoalOz = 120;
+    state.Settings.ReminderIntervalMinutes = 90;
+    state.Settings.SoundsEnabled = true;
+
+    var result = LegacyDataImporter.MergeInto(state, snapshot);
+
+    Equal(true, result.SettingsImported);
+    Near(120, state.Settings.DailyGoalOz);
+    Equal(90, state.Settings.ReminderIntervalMinutes);
+    Equal(false, state.Settings.SoundsEnabled);
+});
+
+Test("creates a unique pre-import backup before merging state", () =>
+{
+    using var temp = new TemporaryDirectory();
+    var statePath = Path.Combine(temp.Path, "state.json");
+    var store = new AppStateStore(statePath);
+    Equal(true, store.Save(ValidState(8)).Success);
+    var original = File.ReadAllText(statePath);
+    Equal(true, store.SaveImportedState(ValidState(20)).Success);
+    var backups = Directory.GetFiles(temp.Path, "state.pre-import.*.json");
+    Equal(1, backups.Length);
+    Equal(original, File.ReadAllText(backups[0]));
+});
+
 Test("accepts only the version-matched installer from the official repository", () =>
 {
     var version = new Version(2, 1, 0);
@@ -349,6 +426,20 @@ Test("accepts only official Waterline release pages", () =>
     Equal(true, UpdateAssetPolicy.IsTrustedReleasePage("https://github.com/AayyKay/waterline/releases/tag/v2.1.0"));
     Equal(false, UpdateAssetPolicy.IsTrustedReleasePage("https://github.com/another/waterline/releases/tag/v2.1.0"));
     Equal(false, UpdateAssetPolicy.IsTrustedReleasePage("http://github.com/AayyKay/waterline/releases/latest"));
+});
+
+Test("normalizes and enforces GitHub SHA-256 installer digests", () =>
+{
+    using var temp = new TemporaryDirectory();
+    var path = Path.Combine(temp.Path, "installer.exe");
+    File.WriteAllText(path, "verified Waterline installer bytes");
+    var expected = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(path))).ToLowerInvariant();
+    Equal(true, UpdateAssetPolicy.TryNormalizeSha256($"sha256:{expected.ToUpperInvariant()}", out var normalized));
+    Equal(expected, normalized);
+    Equal(true, UpdateAssetPolicy.HasExpectedSha256(path, expected));
+    File.AppendAllText(path, "tampered");
+    Equal(false, UpdateAssetPolicy.HasExpectedSha256(path, expected));
+    Equal(false, UpdateAssetPolicy.TryNormalizeSha256("sha256:not-a-digest", out _));
 });
 
 Test("captures widget placement as normalized work-area anchors", () =>
@@ -445,6 +536,14 @@ static int WavePeak(byte[] wave)
         peak = Math.Max(peak, Math.Abs((int)BitConverter.ToInt16(wave, offset)));
     return peak;
 }
+
+static byte[] ChromiumKey(string key)
+{
+    var prefix = Encoding.UTF8.GetBytes("_file://waterline\0");
+    return prefix.Concat(ChromiumValue(key)).ToArray();
+}
+
+static byte[] ChromiumValue(string value) => [1, .. Encoding.Latin1.GetBytes(value)];
 
 static DrinkEntry Drink(double amount, DateTimeOffset at) =>
     new() { Id = Guid.NewGuid().ToString("N"), AmountOz = amount, RecordedAt = at };

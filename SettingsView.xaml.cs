@@ -25,6 +25,7 @@ public partial class SettingsView : System.Windows.Controls.UserControl
     }
 
     private void Recover_Click(object sender, RoutedEventArgs e) => (DataContext as MainViewModel)?.AcknowledgeRecovery();
+    private void ImportLegacy_Click(object sender, RoutedEventArgs e) => (DataContext as MainViewModel)?.Configuration.ImportLegacyData();
     private void ClearDiagnostics_Click(object sender, RoutedEventArgs e) => (DataContext as MainViewModel)?.Configuration.ClearDiagnostics();
 
     private void OpenData_Click(object sender, RoutedEventArgs e)
