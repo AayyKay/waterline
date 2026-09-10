@@ -2,7 +2,7 @@
   #define MyAppName "Waterline"
 #endif
 #ifndef MyAppVersion
-  #define MyAppVersion "2.0.0"
+  #define MyAppVersion "2.1.1"
 #endif
 #ifndef MyAppId
   #define MyAppId "{{8AFEC410-4D36-45F6-A683-CE3DFE7731B2}"
