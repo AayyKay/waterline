@@ -84,12 +84,13 @@ public partial class App : System.Windows.Application
             dialog.Show();
             target = dialog;
         }
-        if (mode is "widget" or "collapsed" or "widget-high-contrast" or "collapsed-high-contrast" or "widget-reduced-motion" or "collapsed-reduced-motion" or "motion-widget" or "motion-collapsed")
+        if (mode is "widget" or "widget-expanded-after-compact" or "collapsed" or "widget-high-contrast" or "collapsed-high-contrast" or "widget-reduced-motion" or "collapsed-reduced-motion" or "motion-widget" or "motion-collapsed")
         {
             _mainWindow!.Hide();
             var widget = new WidgetWindow(viewModel, ShowMainWindow);
             widget.Show();
             if (mode is "collapsed" or "collapsed-high-contrast" or "collapsed-reduced-motion" or "motion-collapsed") widget.SetCollapsedForSnapshot();
+            if (mode == "widget-expanded-after-compact") widget.SetExpandedAfterCollapsedForSnapshot();
             target = widget;
         }
         if (mode == "motion-log")

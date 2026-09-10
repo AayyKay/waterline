@@ -55,7 +55,7 @@ public partial class MainWindow : Window
 
     private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName != nameof(MainViewModel.ReservoirFillHeight) || !IsLoaded) return;
+        if (e.PropertyName != nameof(MainViewModel.ProgressPercent) || !IsLoaded) return;
         var response = _nextReservoirResponse;
         _nextReservoirResponse = 1;
         UpdateReservoirFill(MotionPolicy.IsEnabled && IsVisible && WindowState != WindowState.Minimized, response);
@@ -63,46 +63,7 @@ public partial class MainWindow : Window
 
     private void UpdateReservoirFill(bool animate, double response = 1)
     {
-        var reservoirFrame = (Border)((Grid)ReservoirFill.Parent).Parent;
-        var target = Math.Max(0, reservoirFrame.Height - 4) * _viewModel.ProgressPercent / 100;
-        var previous = ReservoirFill.ActualHeight;
-        ReservoirFill.BeginAnimation(HeightProperty, null);
-        ReservoirFill.Height = target;
-        if (!animate) return;
-        var animation = new DoubleAnimation
-        {
-            From = previous,
-            To = target,
-            Duration = TimeSpan.FromMilliseconds(500),
-            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
-            FillBehavior = FillBehavior.Stop
-        };
-        ReservoirFill.BeginAnimation(HeightProperty, animation, HandoffBehavior.SnapshotAndReplace);
-        ReservoirSurfaceScale.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimationUsingKeyFrames
-        {
-            KeyFrames =
-            {
-                new EasingDoubleKeyFrame(1, KeyTime.FromTimeSpan(TimeSpan.Zero)),
-                new EasingDoubleKeyFrame(1 + .34 * response, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(180))),
-                new EasingDoubleKeyFrame(1, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(1050)))
-            }
-        }, HandoffBehavior.SnapshotAndReplace);
-        ReservoirHighlightTranslate.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation
-        {
-            From = 70,
-            To = -Math.Max(70, target),
-            Duration = TimeSpan.FromMilliseconds(900),
-            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
-        }, HandoffBehavior.SnapshotAndReplace);
-        ReservoirHighlight.BeginAnimation(OpacityProperty, new DoubleAnimationUsingKeyFrames
-        {
-            KeyFrames =
-            {
-                new DiscreteDoubleKeyFrame(0, KeyTime.FromTimeSpan(TimeSpan.Zero)),
-                new EasingDoubleKeyFrame(.28 * response, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(120))),
-                new EasingDoubleKeyFrame(0, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(900)))
-            }
-        }, HandoffBehavior.SnapshotAndReplace);
+        ReservoirGauge.SetProgress(_viewModel.ProgressPercent, animate, response);
         TotalValueText.BeginAnimation(OpacityProperty, new DoubleAnimation(.58, 1, TimeSpan.FromMilliseconds(190)), HandoffBehavior.SnapshotAndReplace);
     }
 
@@ -116,6 +77,7 @@ public partial class MainWindow : Window
     {
         if (!IsLoaded) return;
         var shouldRun = MotionPolicy.IsEnabled && IsVisible && WindowState != WindowState.Minimized;
+        ReservoirGauge.SetMotionEnabled(shouldRun);
         var ambient = (Storyboard)Resources["AmbientMotion"];
         if (shouldRun && !_ambientMotionRunning)
         {
@@ -126,7 +88,6 @@ public partial class MainWindow : Window
         {
             ambient.Remove(this);
             AmbientCurrentTranslate.X = 0;
-            ReservoirWaveTranslate.X = 0;
             _ambientMotionRunning = false;
         }
     }
@@ -251,11 +212,7 @@ public partial class MainWindow : Window
             Grid.SetColumnSpan(TodayRail, 3);
             var progressCard = (Border)TodayPrimary.Children[0];
             progressCard.Padding = new Thickness(12);
-            var reservoirFrame = (Border)((Grid)ReservoirFill.Parent).Parent;
-            reservoirFrame.Height = 145;
-            var reservoirArea = (Grid)reservoirFrame.Parent;
-            reservoirArea.Height = 160;
-            ((StackPanel)reservoirArea.Children[1]).Visibility = Visibility.Collapsed;
+            ReservoirGauge.Height = 160;
             var historyCard = (Border)((StackPanel)HistoryDayList.Parent).Parent;
             Grid.SetColumnSpan(historyCard, 3);
             Grid.SetRow(HistoryDetail, 1);
@@ -270,11 +227,7 @@ public partial class MainWindow : Window
             Grid.SetColumnSpan(TodayRail, 1);
             var progressCard = (Border)TodayPrimary.Children[0];
             progressCard.Padding = new Thickness(24);
-            var reservoirFrame = (Border)((Grid)ReservoirFill.Parent).Parent;
-            reservoirFrame.Height = 270;
-            var reservoirArea = (Grid)reservoirFrame.Parent;
-            reservoirArea.Height = 292;
-            ((StackPanel)reservoirArea.Children[1]).Visibility = Visibility.Visible;
+            ReservoirGauge.Height = 292;
             var historyCard = (Border)((StackPanel)HistoryDayList.Parent).Parent;
             Grid.SetColumnSpan(historyCard, 1);
             Grid.SetRow(HistoryDetail, 0);

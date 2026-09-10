@@ -81,7 +81,6 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public double TotalOz => CurrentProgress.TotalOz;
     public double RemainingOz => CurrentProgress.RemainingOz;
     public double ProgressPercent => Math.Min(100, CurrentProgress.Percent);
-    public double ReservoirFillHeight => 266 * ProgressPercent / 100;
     public bool IsGoalComplete => CurrentProgress.IsComplete;
     public bool IsOverGoal => CurrentProgress.Percent > 100;
     public bool HasTodayEntries => Drinks.Count > 0;
@@ -91,6 +90,10 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public string TotalLabel => $"{TotalOz:0.#}";
     public string GoalLabel => $"/ {Settings.DailyGoalOz:0.#} oz";
     public string PercentLabel => $"{CurrentProgress.Percent:0}% of your goal";
+    public string ReservoirGoalLabel => $"{Settings.DailyGoalOz:0.#} oz";
+    public string ReservoirThreeQuarterLabel => $"{Settings.DailyGoalOz * .75:0.#}";
+    public string ReservoirHalfLabel => $"{Settings.DailyGoalOz * .5:0.#}";
+    public string ReservoirQuarterLabel => $"{Settings.DailyGoalOz * .25:0.#}";
     public string RemainingLabel => IsOverGoal
         ? $"{TotalOz - Settings.DailyGoalOz:0.#} oz above goal"
         : RemainingOz > 0 ? $"{RemainingOz:0.#} oz to go" : "Goal complete";
@@ -676,7 +679,6 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         OnPropertyChanged(nameof(TotalOz));
         OnPropertyChanged(nameof(RemainingOz));
         OnPropertyChanged(nameof(ProgressPercent));
-        OnPropertyChanged(nameof(ReservoirFillHeight));
         OnPropertyChanged(nameof(IsGoalComplete));
         OnPropertyChanged(nameof(IsOverGoal));
         OnPropertyChanged(nameof(HasTodayEntries));
@@ -691,6 +693,10 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         OnPropertyChanged(nameof(TotalLabel));
         OnPropertyChanged(nameof(GoalLabel));
         OnPropertyChanged(nameof(PercentLabel));
+        OnPropertyChanged(nameof(ReservoirGoalLabel));
+        OnPropertyChanged(nameof(ReservoirThreeQuarterLabel));
+        OnPropertyChanged(nameof(ReservoirHalfLabel));
+        OnPropertyChanged(nameof(ReservoirQuarterLabel));
         OnPropertyChanged(nameof(RemainingLabel));
         OnPropertyChanged(nameof(TodayStateLabel));
         OnPropertyChanged(nameof(DateLabel));

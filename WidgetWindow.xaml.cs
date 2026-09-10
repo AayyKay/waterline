@@ -150,18 +150,30 @@ public partial class WidgetWindow : Window
     private void Collapse_Click(object sender, RoutedEventArgs e) => ApplyMode("compact", restorePlacement: true);
     private void Expand_Click(object sender, RoutedEventArgs e) => ApplyMode("expanded", restorePlacement: true);
     public void SetCollapsedForSnapshot() => ApplyMode("compact", restorePlacement: true);
+    public void SetExpandedAfterCollapsedForSnapshot()
+    {
+        ApplyMode("compact", restorePlacement: false, persist: false);
+        ApplyMode("expanded", restorePlacement: false, persist: false);
+    }
 
     private void ApplyMode(string mode, bool restorePlacement, bool persist = true)
     {
         var placement = CapturePlacement();
         _mode = mode is "compact" ? "compact" : "expanded";
         var compact = _mode == "compact";
+        var targetWidth = compact ? CompactWidth : ExpandedWidth;
+        var targetHeight = compact ? CompactHeight : ExpandedHeight;
         ExpandedCard.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
         CompactCard.Visibility = compact ? Visibility.Visible : Visibility.Collapsed;
-        Width = compact ? CompactWidth : ExpandedWidth;
-        Height = compact ? CompactHeight : ExpandedHeight;
-        MinWidth = MaxWidth = Width;
-        MinHeight = MaxHeight = Height;
+
+        // Release the previous mode's fixed constraints before assigning the new size.
+        // Otherwise WPF coerces an expanded dimension back to the compact maximum.
+        MinWidth = MinHeight = 0;
+        MaxWidth = MaxHeight = double.PositiveInfinity;
+        Width = targetWidth;
+        Height = targetHeight;
+        MinWidth = MaxWidth = targetWidth;
+        MinHeight = MaxHeight = targetHeight;
         if (restorePlacement) RestorePlacement(placement);
         UpdateMotionState();
         if (persist) SavePlacement();
