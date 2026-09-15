@@ -40,6 +40,15 @@ jobs:
           $project = [xml](Get-Content Waterline.csproj)
           $version = $project.SelectSingleNode('/Project/PropertyGroup/Version').InnerText.Trim()
           ./tools/Verify-ReleaseCandidate.ps1 -Version $version -PublishDirectory publish -InstallerPath "release/Waterline-Setup-$version.exe"
+      - name: Sign installer when credentials are configured
+        id: sign
+        shell: pwsh
+        env:
+          WATERLINE_SIGNING_PFX_BASE64: ${{ secrets.WATERLINE_SIGNING_PFX_BASE64 }}
+          WATERLINE_SIGNING_PFX_PASSWORD: ${{ secrets.WATERLINE_SIGNING_PFX_PASSWORD }}
+        run: |
+          $version = $env:GITHUB_REF_NAME.Substring(1)
+          ./tools/Sign-ReleaseInstaller.ps1 -InstallerPath "release/Waterline-Setup-$version.exe" -OutputFile $env:GITHUB_OUTPUT
       - name: Create release checksums
         shell: pwsh
         run: |
@@ -48,6 +57,14 @@ jobs:
           $installer = "release/Waterline-Setup-$version.exe"
           $hash = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant()
           "$hash  Waterline-Setup-$version.exe" | Set-Content -LiteralPath "release/Waterline-Setup-$version.exe.sha256" -Encoding ascii
+      - name: Verify final installer signature when configured
+        shell: pwsh
+        env:
+          WATERLINE_SIGNING_RESULT: ${{ steps.sign.outputs.signed }}
+          WATERLINE_SIGNER_THUMBPRINT: ${{ steps.sign.outputs.signer_thumbprint }}
+        run: |
+          $version = $env:GITHUB_REF_NAME.Substring(1)
+          ./tools/Verify-InstallerSignature.ps1 -InstallerPath "release/Waterline-Setup-$version.exe" -SigningConfigured $env:WATERLINE_SIGNING_RESULT -ExpectedSignerThumbprint $env:WATERLINE_SIGNER_THUMBPRINT
       - name: Publish GitHub Release
         shell: pwsh
         env:

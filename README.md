@@ -70,4 +70,13 @@ dotnet publish Waterline.csproj -c Release -r win-x64 --self-contained true -o p
 
 The release workflow publishes `Waterline-Setup-<version>.exe` and its SHA-256 sidecar to GitHub Releases. Installed copies accept only a version-matched installer from the official repository with a GitHub-provided SHA-256 digest, then verify the downloaded file before offering installation.
 
+To sign the installer in the tag release workflow, the repository owner must add **both** of these GitHub Actions repository secrets under **Settings → Secrets and variables → Actions**:
+
+- `WATERLINE_SIGNING_PFX_BASE64`: a single-line Base64 encoding of the raw binary PKCS#12 `.pfx`/`.p12` file. The file must contain the publisher's code-signing certificate, its private key, and any needed intermediate certificates. It is not a PEM certificate, a public `.cer` file, or Base64 text with `-----BEGIN` markers.
+- `WATERLINE_SIGNING_PFX_PASSWORD`: the nonempty password protecting that same PKCS#12 file.
+
+The certificate must be currently valid, have the Code Signing extended key usage (`1.3.6.1.5.5.7.3.3`), and chain to a Windows-trusted public certificate authority for the final signature check to pass on the GitHub Windows runner. On Windows, create the Base64 value from an existing PFX with `[Convert]::ToBase64String([IO.File]::ReadAllBytes('C:\path\publisher.pfx'))`; paste the resulting single line into the secret. Keep the PFX and password out of the repository.
+
+When both secrets are absent, local and CI release-candidate builds remain unsigned, and the tag workflow can produce an unsigned installer. If only one secret is present, signing fails and the workflow stops before publication. With both configured, the workflow signs the generated installer with SHA-256 and a timestamp, verifies the final file's Authenticode signature, timestamp, and signing-certificate thumbprint, then computes the SHA-256 sidecar from that signed file. A signing or verification failure stops the release job before `gh release create`.
+
 See [Third-party notices](THIRD-PARTY-NOTICES.md) for packaged dependency licenses.
